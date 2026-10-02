@@ -1,0 +1,1876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jeff — interactive demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E6ECE7; --surface:#F6F8F5; --ink:#13231D; --muted:#5B6B63; --line:#D2DBD4;
+  --jeff:#0D3A2B; --jeff2:#175340; --mint:#86E3B5; --gold:#E2B24A; --flag:#D4472F; --onjeff:#EAF6EF;
+  --frame:#0B1411;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0A1310; --surface:#111D18; --ink:#E3ECE6; --muted:#8FA198; --line:#22332B; --jeff:#0B3022; --jeff2:#145039; --frame:#000;
+}}
+:root[data-theme="dark"]{--paper:#0A1310; --surface:#111D18; --ink:#E3ECE6; --muted:#8FA198; --line:#22332B; --jeff:#0B3022; --jeff2:#145039; --frame:#000;}
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0; min-height:100%; background:var(--paper); color:var(--ink); font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased}
+button{font:inherit; color:inherit; cursor:pointer}
+:focus-visible{outline:2px solid var(--mint); outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* stage */
+.stage{display:flex; gap:40px; justify-content:center; align-items:flex-start; padding:28px 20px 40px; min-height:100%}
+.phone{position:relative; width:390px; max-width:100%; height:min(844px, calc(100vh - 56px)); min-height:640px; background:var(--surface); border:10px solid var(--frame); border-radius:48px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 80px -40px rgba(13,58,43,.55)}
+.notch{position:absolute; top:8px; left:50%; transform:translateX(-50%); width:110px; height:30px; background:var(--frame); border-radius:20px; z-index:30}
+.screen{flex:1; overflow-y:auto; overflow-x:hidden; position:relative}
+.screen::-webkit-scrollbar{width:0}
+
+/* controls */
+.controls{width:300px; position:sticky; top:28px; font-size:14px}
+.controls h2{font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:20px; margin:0 0 4px}
+.controls .lede{color:var(--muted); margin:0 0 20px}
+.cgroup{border-top:1px solid var(--line); padding:14px 0 16px}
+.cgroup h3{font-size:13px; font-weight:600; color:var(--muted); margin:0 0 10px}
+.pbtn{display:block; width:100%; text-align:left; background:transparent; border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px}
+.pbtn b{display:block; font-weight:600}
+.pbtn span{color:var(--muted); font-size:13px}
+.pbtn[aria-pressed="true"]{border-color:var(--jeff2); background:var(--surface); box-shadow:inset 3px 0 0 var(--jeff2)}
+.row{display:flex; gap:8px; flex-wrap:wrap}
+.sbtn{background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:7px 13px; font-size:13px}
+.ebtn{display:block; width:100%; text-align:left; background:var(--jeff); color:var(--onjeff); border:0; border-radius:12px; padding:11px 13px; margin-bottom:8px; font-weight:500}
+.ebtn small{display:block; opacity:.7; font-weight:400; font-size:12px}
+.toggle{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+.status{font-size:12px; color:var(--muted)}
+.status i{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--muted); margin-right:6px; vertical-align:1px}
+.status.on i{background:#2FB27A}
+.hidebtn{position:fixed; right:14px; bottom:14px; z-index:50; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:12px; color:var(--muted)}
+body.clean .controls{display:none}
+
+/* shared screen bits */
+.pad{padding:58px 22px 24px}
+.title{font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:28px; line-height:1.1; letter-spacing:-.01em; margin:0 0 8px}
+.sub{color:var(--muted); margin:0 0 20px}
+.primary{display:block; width:100%; border:0; border-radius:16px; background:var(--jeff); color:var(--onjeff); padding:16px; font-weight:600; font-size:16px}
+.primary[disabled]{opacity:.35; cursor:default}
+.footer{position:sticky; bottom:0; padding:12px 22px 18px; background:linear-gradient(to top, var(--surface) 70%, transparent)}
+
+/* welcome */
+.welcome{height:100%; display:flex; flex-direction:column; background:var(--jeff); color:var(--onjeff)}
+.welcome .top{flex:1; padding:80px 26px 0; display:flex; flex-direction:column}
+.wordmark{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:112px; line-height:.85; letter-spacing:-.045em; margin:0}
+.welcome p.tag{font-size:19px; line-height:1.35; max-width:290px; margin:22px 0 0; opacity:.92}
+.bigwave{margin-top:auto; height:150px; display:flex; align-items:center; gap:5px; padding-bottom:30px}
+.bigwave span{flex:1; background:var(--mint); border-radius:4px; opacity:.85; animation:breathe 2.4s ease-in-out infinite}
+.welcome .bottom{padding:0 22px 26px}
+.welcome .primary{background:var(--mint); color:var(--jeff)}
+.fine{font-size:12px; opacity:.6; text-align:center; margin:12px 0 0}
+@keyframes breathe{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+
+/* connect */
+.search{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:14px; padding:12px 14px; color:var(--muted); margin-bottom:18px; background:var(--paper)}
+.search input{border:0; background:transparent; flex:1; font:inherit; color:var(--ink); outline:none}
+.banks{list-style:none; margin:0; padding:0}
+.bank{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line)}
+.logo{width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-weight:700; font-size:14px; color:#fff; flex:none}
+.bank .nm{flex:1; min-width:0}
+.bank .nm b{display:block; font-weight:600}
+.bank .nm span{font-size:13px; color:var(--muted)}
+.cbtn{border:1px solid var(--ink); background:transparent; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:600}
+.cbtn.done{border-color:transparent; color:#2FB27A}
+.cbtn.busy{border-color:var(--line); color:var(--muted)}
+.more{font-size:13px; color:var(--muted); margin:14px 0 0}
+
+/* state */
+.lead{font-family:"Bricolage Grotesque",sans-serif; font-size:23px; line-height:1.22; font-weight:500; letter-spacing:-.01em; margin:0 0 22px}
+.lead em{font-style:normal; font-weight:700}
+.group h4{font-size:13px; color:var(--muted); font-weight:600; margin:18px 0 2px; display:flex; justify-content:space-between}
+.acct{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line)}
+.acct .logo{width:32px; height:32px; font-size:12px; border-radius:9px}
+.acct .nm{flex:1; min-width:0}
+.acct .nm b{display:block; font-weight:500; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.acct .nm span{font-size:12px; color:var(--muted)}
+.acct .bal{text-align:right; font-weight:600}
+.acct .bal small{display:block; font-weight:400; font-size:12px; color:var(--muted)}
+.neg{color:var(--flag)}
+.hl{animation:flash 1.6s ease}
+@keyframes flash{0%{background:rgba(134,227,181,.0)}25%{background:rgba(134,227,181,.35)}100%{background:rgba(134,227,181,0)}}
+
+/* plan */
+.progress{display:flex; gap:4px; margin:0 0 18px}
+.progress i{flex:1; height:4px; border-radius:2px; background:var(--line)}
+.progress i.ok{background:var(--jeff2)} .progress i.cur{background:var(--mint)}
+.moves{list-style:none; margin:0; padding:0; counter-reset:m}
+.move{position:relative; padding:14px 0 14px 40px; border-bottom:1px solid var(--line); color:var(--muted); transition:color .3s}
+.move::before{counter-increment:m; content:counter(m); position:absolute; left:0; top:14px; width:26px; height:26px; border-radius:50%; border:1px solid var(--line); display:grid; place-items:center; font-size:12px; font-weight:600}
+.move b{display:block; font-weight:600; font-size:15px}
+.move .d{font-size:13px; display:none}
+.move .tag{display:inline-block; font-size:12px; font-weight:600; margin-top:4px}
+.move.current{color:var(--ink)}
+.move.current .d,.move.approved .d,.move.adjusted .d{display:block}
+.move.current::before{background:var(--mint); border-color:var(--mint); color:var(--jeff)}
+.move.current{background:linear-gradient(90deg, rgba(134,227,181,.16), transparent 80%); margin:0 -22px; padding-left:62px; padding-right:22px}
+.move.current::before{left:22px}
+.move.approved,.move.adjusted{color:var(--ink)}
+.move.approved::before,.move.adjusted::before{content:"✓"; background:var(--jeff2); border-color:var(--jeff2); color:#fff}
+.move.declined b{text-decoration:line-through}
+.move .rec{font-size:13px; color:var(--jeff2); font-weight:600}
+
+/* home */
+.hhead{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:22px}
+.hhead .hi{color:var(--muted)}
+.hhead .mk{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:22px; letter-spacing:-.03em}
+.safe .lbl{margin:0; color:var(--muted)}
+.safe .big{font-family:"Bricolage Grotesque",sans-serif; font-weight:700; font-size:64px; letter-spacing:-.035em; line-height:1; margin:4px 0}
+.safe .small{margin:0 0 26px; color:var(--muted); font-size:14px}
+.hsec{margin-bottom:26px}
+.hsec h3{font-size:14px; font-weight:600; margin:0 0 10px}
+.split{display:flex; height:14px; border-radius:7px; overflow:hidden; gap:2px}
+.split i{display:block; height:100%; transition:flex-grow .6s}
+.legend{list-style:none; padding:0; margin:10px 0 0; display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:13px}
+.legend li{display:flex; align-items:center; gap:7px}
+.legend li i{width:9px; height:9px; border-radius:3px; flex:none}
+.legend li span{margin-left:auto; font-weight:600}
+.handling,.activity{list-style:none; margin:0; padding:0}
+.handling li{padding:10px 0; border-bottom:1px solid var(--line); font-size:14px}
+.handling li span{display:block; color:var(--muted); font-size:13px}
+.activity li{display:flex; gap:10px; padding:9px 0; font-size:13px; border-bottom:1px solid var(--line)}
+.activity li time{color:var(--muted); width:52px; flex:none}
+.activity li.new{animation:flash 1.8s ease}
+.thread .msg{margin:10px 0}
+.thread .me{text-align:right}
+.thread .me span{display:inline-block; background:var(--paper); border-radius:14px 14px 4px 14px; padding:8px 12px; font-size:14px}
+.thread .jf{font-size:14px}
+.chart{background:var(--paper); border-radius:14px; padding:12px; margin-top:8px}
+.chart h5{margin:0 0 8px; font-size:13px; font-weight:600}
+.chart svg{display:block; width:100%; height:auto}
+.chart text{fill:var(--ink); font-family:inherit}
+.chart .mt{fill:var(--muted)}
+
+/* Jeff dock */
+.dock{background:var(--jeff); color:var(--onjeff); padding:12px 16px 14px; border-radius:24px 24px 0 0; flex:none; display:none}
+.dock.show{display:block}
+.jrow{display:flex; gap:12px; align-items:flex-start}
+.wave{width:44px; height:44px; border-radius:50%; background:var(--jeff2); display:flex; align-items:center; justify-content:center; gap:3px; flex:none}
+.wave span{width:3px; height:18px; background:var(--mint); border-radius:2px; transform:scaleY(.25); transition:transform .2s}
+.speaking .wave span,.wave.speaking span{animation:talk .5s ease-in-out infinite alternate}
+.wave span:nth-child(2){animation-delay:.12s!important}.wave span:nth-child(3){animation-delay:.24s!important}.wave span:nth-child(4){animation-delay:.08s!important}.wave span:nth-child(5){animation-delay:.3s!important}
+@keyframes talk{from{transform:scaleY(.25)}to{transform:scaleY(1)}}
+.lines{flex:1; min-width:0}
+.who{font-size:12px; opacity:.6; margin:0 0 2px}
+.said{font-size:15.5px; line-height:1.4; margin:0; max-height:120px; overflow-y:auto; min-height:22px}
+.said.thinking{opacity:.6}
+.you{font-size:13px; opacity:.6; margin:6px 0 0; min-height:0}
+.chips{display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 0}
+.chip{background:transparent; border:1px solid rgba(234,246,239,.35); color:var(--onjeff); border-radius:999px; padding:7px 13px; font-size:13.5px}
+.chip:first-child{background:var(--mint); color:var(--jeff); border-color:var(--mint); font-weight:600}
+.ask{display:flex; gap:8px; margin-top:10px; align-items:center}
+.ask input{flex:1; min-width:0; background:rgba(255,255,255,.08); border:1px solid rgba(234,246,239,.18); border-radius:999px; padding:10px 14px; color:var(--onjeff); font:inherit; font-size:14px; outline:none}
+.ask input::placeholder{color:rgba(234,246,239,.5)}
+.mic,.send{width:40px; height:40px; border-radius:50%; border:0; background:var(--jeff2); color:var(--onjeff); display:grid; place-items:center; flex:none}
+.mic.live{background:var(--flag)}
+.send{background:var(--mint); color:var(--jeff)}
+
+/* overlays */
+.call{position:absolute; inset:0; z-index:40; background:var(--jeff); color:var(--onjeff); display:none; flex-direction:column; padding:70px 22px 22px}
+.call.show{display:flex}
+.call .cname{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:56px; letter-spacing:-.04em; margin:0; line-height:1}
+.call .cstat{opacity:.7; margin:6px 0 0}
+.call .cwave{margin:40px auto 0; width:120px; height:120px; border-radius:50%; background:var(--jeff2); display:flex; align-items:center; justify-content:center; gap:5px}
+.call .cwave span{width:5px; height:44px; background:var(--mint); border-radius:3px; transform:scaleY(.2)}
+.call.ringing .cwave{animation:ring 1.2s ease-in-out infinite}
+@keyframes ring{0%,100%{box-shadow:0 0 0 0 rgba(134,227,181,.5)}50%{box-shadow:0 0 0 22px rgba(134,227,181,0)}}
+.call.speaking .cwave span{animation:talk .45s ease-in-out infinite alternate}
+.call .cwave span:nth-child(2){animation-delay:.1s}.call .cwave span:nth-child(3){animation-delay:.22s}.call .cwave span:nth-child(4){animation-delay:.05s}.call .cwave span:nth-child(5){animation-delay:.28s}
+.call .ctext{margin-top:auto}
+.call .said{max-height:170px; font-size:17px}
+.callbtns{display:flex; justify-content:space-around; margin-top:24px}
+.cb{width:66px; height:66px; border-radius:50%; border:0; color:#fff; font-size:13px; font-weight:600}
+.cb.no{background:var(--flag)} .cb.yes{background:#2FB27A}
+.endcall{margin-top:12px; background:var(--flag); color:#fff; border:0; border-radius:999px; padding:10px; width:100%; font-weight:600}
+
+.banner{position:absolute; left:10px; right:10px; top:44px; z-index:35; background:var(--surface); color:var(--ink); border-radius:18px; padding:12px 14px; box-shadow:0 18px 40px -12px rgba(0,0,0,.35); transform:translateY(-140%); transition:transform .45s cubic-bezier(.2,.9,.3,1.2); cursor:pointer; border:1px solid var(--line)}
+.banner.show{transform:none}
+.banner .bt{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:3px}
+.banner b{font-weight:600}
+.banner p{margin:0; font-size:14px}
+
+
+/* v2 additions */
+.datepill{font-size:12px; background:var(--paper); border-radius:999px; padding:3px 10px; color:var(--muted)}
+.worth{display:flex; justify-content:space-between; align-items:center; gap:12px; background:var(--jeff); color:var(--onjeff); border-radius:16px; padding:14px 16px; margin:0 0 26px; border:0; width:100%; text-align:left}
+.worth b{font-family:"Bricolage Grotesque",sans-serif; font-size:24px; letter-spacing:-.02em; display:block; line-height:1.1}
+.worth span{font-size:13px; opacity:.75}
+.worth em{font-style:normal; font-size:13px; color:var(--mint); white-space:nowrap}
+.found{list-style:none; margin:0; padding:0}
+.found li{display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:13.5px}
+.found li time{color:var(--muted); width:46px; flex:none}
+.found li span{margin-left:auto; font-weight:600; color:var(--jeff2); white-space:nowrap}
+.found li.new{animation:flash 1.8s ease}
+.roibig{font-family:"Bricolage Grotesque",sans-serif; font-weight:800; font-size:72px; letter-spacing:-.045em; line-height:.95; margin:4px 0 14px}
+.roirows{list-style:none; margin:6px 0 0; padding:0}
+.roirows li{display:flex; gap:12px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px}
+.roirows li div{flex:1; min-width:0}
+.roirows li small{display:block; color:var(--muted); font-size:12.5px}
+.roirows li b{font-weight:600; white-space:nowrap}
+.roirows li.skip{color:var(--muted)} .roirows li.skip b{text-decoration:line-through; font-weight:400}
+.roirows li.pend b{color:var(--muted); font-weight:500}
+.fineprint{font-size:12px; color:var(--muted); margin:16px 0 0}
+.incomerow{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line)}
+.incomerow .nm{flex:1} .incomerow .nm b{display:block; font-weight:500; font-size:14px} .incomerow .nm span{font-size:12px; color:var(--muted)}
+.incomerow .bal{font-weight:600; color:#2FB27A}
+.ffbtn{display:block; width:100%; background:var(--mint); color:var(--jeff); border:0; border-radius:12px; padding:12px 13px; margin-bottom:10px; font-weight:600; text-align:left}
+.ffbtn small{display:block; font-weight:400; font-size:12px; opacity:.8}
+
+
+/* v3 additions */
+.lrow{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px; transition:background .3s}
+.lrow .nm{flex:1; min-width:0}
+.lrow .nm small{display:block; font-size:12px; color:var(--muted)}
+.lrow .amt{text-align:right; font-weight:600; white-space:nowrap}
+.lrow .amt s{color:var(--muted); font-weight:400; margin-right:6px}
+.lrow .tg{font-size:11.5px; font-weight:600; border-radius:6px; padding:2px 6px; margin-left:6px}
+.tg.trim{background:rgba(134,227,181,.3); color:var(--jeff2)} .tg.prot{background:rgba(226,178,74,.25); color:#9A6B0C}
+.lrow.focus{background:rgba(134,227,181,.18); margin:0 -22px; padding-left:22px; padding-right:22px}
+.cardbox{background:var(--paper); border-radius:14px; padding:12px 14px; font-size:13.5px; margin:0 0 6px}
+.cardbox b{font-weight:600}
+.totals{display:flex; gap:10px; margin-bottom:10px}
+.totals div{flex:1; background:var(--paper); border-radius:12px; padding:9px 12px}
+.totals small{display:block; font-size:12px; color:var(--muted)}
+.totals b{font-family:"Bricolage Grotesque",sans-serif; font-size:20px; font-weight:700}
+.totals b.neg{color:var(--flag)}
+.goals{list-style:none; margin:0; padding:0}
+.goals li{padding:10px 0; border-bottom:1px solid var(--line); font-size:14px}
+.goals li .gt{display:flex; justify-content:space-between; font-weight:500}
+.goals li small{display:block; color:var(--muted); font-size:12.5px; margin-top:2px}
+.bar{height:6px; border-radius:3px; background:var(--line); margin-top:7px; overflow:hidden}
+.bar i{display:block; height:100%; background:var(--jeff2); border-radius:3px; transition:width .6s}
+
+@media (max-width:760px){
+  .stage{flex-direction:column; align-items:center; padding:0 0 30px; gap:24px}
+  .phone{width:100%; border:0; border-radius:0; height:100vh; height:100dvh; min-height:0; box-shadow:none}
+  .notch{display:none}
+  .controls{position:static; width:100%; max-width:420px; padding:0 20px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="notch"></div>
+    <div class="banner" id="banner"></div>
+    <div class="screen" id="screen"></div>
+    <div class="dock" id="dock">
+      <div class="jrow">
+        <div class="wave" id="dwave"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="lines">
+          <p class="who">Jeff</p>
+          <p class="said" id="said" aria-live="polite"></p>
+          <p class="you" id="you"></p>
+        </div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <form class="ask" id="ask" autocomplete="off">
+        <button type="button" class="mic" id="mic" aria-label="Talk to Jeff"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <input id="askin" placeholder="Talk to Jeff" aria-label="Message Jeff">
+        <button class="send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+      </form>
+    </div>
+    <div class="call" id="call">
+      <p class="cname">Jeff</p>
+      <p class="cstat" id="cstat">calling…</p>
+      <div class="cwave"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="ctext" id="ctext">
+        <div class="callbtns" id="callbtns">
+          <button class="cb no" id="decline">Decline</button>
+          <button class="cb yes" id="answer">Answer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="controls" id="controls">
+    <h2>Demo controls</h2>
+    <p class="lede">Pick a person, hand over the phone, then let a month play out while Jeff runs things.</p>
+    <div class="cgroup">
+      <h3>Who's using Jeff</h3>
+      <div id="personas"></div>
+    </div>
+    <div class="cgroup">
+      <h3>Jump to</h3>
+      <div class="row">
+        <button class="sbtn" data-jump="welcome">Start over</button>
+        <button class="sbtn" data-jump="state">Current state</button>
+        <button class="sbtn" data-jump="plan">Plan</button>
+        <button class="sbtn" data-jump="home">Home</button>
+      </div>
+    </div>
+    <div class="cgroup">
+      <h3>Jeff on his own</h3>
+      <button class="ffbtn" id="evMonth">Play the next 30 days<small>Jeff notices things and reaches out, one by one</small></button>
+      <button class="ebtn" id="evPay">Payday lands<small id="evPayS"></small></button>
+      <button class="ebtn" id="evPull">Money leaves the plan<small id="evPullS"></small></button>
+      <button class="ebtn" id="evCreep">Spending creeps up<small id="evCreepS"></small></button>
+    </div>
+    <div class="cgroup">
+      <h3>Settings</h3>
+      <label class="toggle"><input type="checkbox" id="voiceT" checked> Jeff speaks out loud</label>
+      <p class="status" id="aiStatus"><i></i>Checking for live AI replies…</p>
+      <p class="status">Press H to hide this panel during the pitch.</p>
+    </div>
+  </aside>
+</div>
+<button class="hidebtn" id="hideBtn">Hide controls</button>
+
+<script>
+/* ================= Helpers ================= */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = n => (n < 0 ? "−" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US");
+const r100 = n => Math.round(n / 100) * 100;
+const r10 = n => Math.round(n / 10) * 10;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const FV10 = 13.816;
+const PPM = 26 / 12;                 // paychecks per month
+const perPay = m => m / PPM;         // monthly → per paycheck
+const monthly = pp => pp * PPM;      // per paycheck → monthly
+const txt = v => typeof v === "function" ? v() : v;
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const monthLabel = m => { const d = new Date(2026, 9 + Math.round(m), 1); return MONTHS[d.getMonth()] + " " + d.getFullYear(); };
+const parseMoney = t => { const m = String(t).replace(/,/g, "").match(/\$\s*(\d+(?:\.\d+)?)\s*(k)?|(\d{2,6}(?:\.\d+)?)\s*(k|dollars|bucks)?/i); if (!m) return null; let n = parseFloat(m[1] || m[3]); if ((m[2] || m[4] || "").toLowerCase() === "k") n *= 1000; return n; };
+const WORDN = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,a:1,an:1};
+function parseMonths(t){ const m = String(t).toLowerCase().match(/(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a|an)\s*(month|week|year)/); if (!m) return null; const n = WORDN[m[1]] || parseInt(m[1]); return m[2] === "week" ? n / 4.3 : m[2] === "year" ? n * 12 : n; }
+
+/* ================= Data ================= */
+const BANKS = {
+  "Chase":["#1A5BB5","C"], "Capital One":["#C8322B","C1"], "Discover":["#E0761E","D"], "Target":["#CC0000","T"],
+  "Nelnet":["#2E5E8C","N"], "Ally":["#6B2C91","A"], "Venmo":["#2C8DD8","V"], "Wells Fargo":["#B52025","WF"],
+  "American Express":["#2E77BC","AX"], "Fidelity":["#3B8A3B","F"], "Schwab":["#0D8BC9","S"],
+  "Amplify Credit Union":["#2F7D6D","AC"], "Navy Federal":["#1F3E7A","NF"], "UFCU":["#E36A2E","U"]
+};
+
+function matchMove(d, ans){
+  const a = ans.match || "";
+  const pct = d.matchPct, yearly = d.salary * pct / 100, ten = r100(yearly * FV10);
+  const cut = Math.round(d.salary * pct / 100 / 26 * 0.78);
+  if (/^yes/i.test(a)) return {id:"match", kind:"move", title:"Get your full 401(k) match", detail:`Put in ${pct}%, your employer adds ${pct}%, about ${fmt(yearly)} a year`,
+    say:`You said your employer matches ${pct} percent, and right now you're putting in nothing. That's about ${fmt(yearly)} a year you're not collecting. I'd set you to ${pct} percent. Your paycheck drops about ${fmt(cut)}, because it comes out before tax, and I've already counted that in your plan.`,
+    why:"A match is an instant 100 percent return. Nothing else on this list beats free money.",
+    alt:{say:`We could start at ${Math.ceil(pct/2)} percent and step up 1 percent every six months. You'd get about half the match now. Want that?`, detail:`Start at ${Math.ceil(pct/2)}%, step up 1% every six months`},
+    payCut:cut, payCutAlt:Math.round(cut/2),
+    value:{amt:ten, alt:r100(ten*0.72), kind:"free", curve:"comp", label:"Free employer money"}};
+  if (/not sure/i.test(a)) return {id:"match", kind:"check", title:"Find out if you have a 401(k) match", detail:"Jeff checks with HR and sets it up only if there is one",
+    say:`You weren't sure about a 401(k) match, so I'm not going to guess. If your company offers one, it could be worth up to ${fmt(yearly)} a year. Want me to draft a quick note to HR and set it up the day we know?`,
+    why:"If there's a match and you're not taking it, that's the single biggest leak in your finances. If there isn't one, we lose nothing by asking.",
+    yesLine:"Done. I'll draft the note and send it from your email when you okay it. If there's a match, I'll add it to the plan and walk you through it.",
+    noLine:"Okay. I'll leave it off for now and bring it up again at open enrollment.",
+    rec:"HR note drafted. Added to the plan if there's a match",
+    value:{amt:0, pending:ten, kind:"free", curve:"comp", label:"Possible employer money, waiting on HR"}};
+  return null;
+}
+
+/* ---- card payoff calculator (Maya) ---- */
+const CARDS = [{n:"Target",b:640,r:.2995},{n:"Capital One",b:4870,r:.279},{n:"Discover",b:2150,r:.245}];
+const minPay = b => b <= 0 ? 0 : Math.min(b, Math.max(25, b * 0.03));
+function simCards(extra){ // extra: function(month) -> extra dollars that month beyond minimums
+  const cs = CARDS.map(c => ({...c})); let interest = 0, yearly = [0], target = null, free = null; const series = [];
+  for (let m = 0; m < 120; m++){
+    cs.forEach(c => { const i = c.b * c.r / 12; c.b += i; interest += i; });
+    let budget = extra ? 230 + extra(m) : Infinity;
+    cs.forEach(c => { const p = Math.min(minPay(c.b), budget); c.b -= p; budget -= p; });
+    if (extra) for (const c of cs.slice().sort((a,b) => b.r - a.r)){ if (budget <= 0) break; const p = Math.min(c.b, budget); c.b -= p; budget -= p; }
+    const tot = cs.reduce((s,c) => s + Math.max(0,c.b), 0); series.push(tot);
+    if (target === null && cs[0].b <= 0.5) target = m;
+    if (free === null && tot <= 0.5) free = m;
+    if ((m + 1) % 12 === 0) yearly.push(interest);
+  }
+  return {interest, yearly, target, free, series};
+}
+const BASE = simCards(null);
+
+const P = {
+  maya:{
+    first:"Maya", label:"Maya, 24", blurb:"Card debt, a car loan, five apps open",
+    salary:68000, matchPct:4, pay:2050, payer:"Brightline Agency",
+    banks:["Chase","Capital One","Discover","Target","Nelnet","Ally","Venmo"],
+    accounts:[
+      {inst:"Chase",name:"Total Checking",type:"cash",bal:1240},
+      {inst:"Chase",name:"Savings",type:"cash",bal:310,rate:"0.01% APY"},
+      {inst:"Venmo",name:"Venmo balance",type:"cash",bal:85},
+      {inst:"Capital One",name:"Quicksilver card",type:"credit",bal:-4870,rate:"27.9% APR"},
+      {inst:"Discover",name:"Discover it card",type:"credit",bal:-2150,rate:"24.5% APR"},
+      {inst:"Target",name:"Target Circle Card",type:"credit",bal:-640,rate:"29.95% APR"},
+      {inst:"Nelnet",name:"Federal student loans",type:"loan",bal:-31400,rate:"5.5%"},
+      {inst:"Ally",name:"Auto loan",type:"loan",bal:-14200,rate:"9.4%"}
+    ],
+    job:"Marketing coordinator at Brightline Agency, $68,000 salary",
+    living:[
+      {name:"Rent", amt:1150, type:"fixed"},
+      {name:"Car payment", amt:390, type:"fixed"},
+      {name:"Car insurance", amt:140, type:"fixed"},
+      {name:"Phone and utilities", amt:130, type:"fixed"},
+      {name:"Student loan", amt:250, type:"fixed"},
+      {name:"Card minimums", amt:230, type:"fixed"},
+      {name:"Groceries", amt:260, type:"need", card:true},
+      {name:"Gas", amt:130, type:"need", card:true},
+      {name:"Food delivery", amt:410, type:"want", card:true, trim:{to:200, harm:true,
+        say:"Let's start with the big one. Food delivery is $410 a month, mostly DoorDash after 9pm. You're paying 28 percent interest on some of those burritos. I'd bring it to $200. Still a couple of nights a week.",
+        why:"Every dollar here right now goes on a card at almost 30 percent. Cutting $210 a month gets you out of card debt months sooner."}},
+      {name:"Going out", amt:340, type:"want", card:true, trim:{to:250,
+        say:"Going out is $340. That's your social life, so I'm not touching most of it. I'd suggest $250, mostly by skipping the second round of drinks.",
+        why:"I'm not trying to make you stay home. A little trim here adds up to over a thousand a year."}},
+      {name:"Shopping", amt:280, type:"want", card:true, trim:{to:180,
+        say:"Shopping is $280 a month. I'd like to bring it to $180 while the cards are being paid off. After that, we loosen it.",
+        why:"This is temporary. Once the cards are gone, you get this money back and then some."}},
+      {name:"Subscriptions", amt:96, type:"want", card:true, trim:{to:60,
+        say:"Subscriptions are $96. You're paying for Hulu and a gym app you haven't opened since July. Cancelling those gets you to $60.",
+        why:"These are the easiest wins there are. You won't feel them."}},
+      {name:"Amazon and everything else", amt:420, type:"want", card:true, trim:{to:300,
+        say:"Last one. About $420 a month goes to Amazon and random small stuff. I'd cap it at $300.",
+        why:"Small purchases are where budgets quietly leak. A cap makes it a choice instead of a habit."}}
+    ],
+    lead:`You've got <em>$1,635</em> in cash and owe <em>$53,260</em> across five debts. Your cards alone cost about <em>$173 a month</em> in interest.`,
+    questions:[
+      {id:"rent", q:"Every month $1,150 goes to K. Ortiz on Zelle. Is that your rent?", opts:["Yes, that's rent","No, something else"], hl:"Total Checking"},
+      {id:"match", q:"Your paychecks don't show anything going into a 401(k). Does Brightline offer a match?", opts:["Yes, 4%","Not sure","No match"]}
+    ],
+    moves(ans){
+      const m = [
+        {id:"hysa", kind:"new", opens:{id:"hysa", inst:"Harbor Bank", name:"High-Yield Savings", rate:"4.10% APY", from:"sav"}, title:"Open a high-yield savings account", detail:"Your cushion earns 0.01% at Chase",
+         say:"First thing. Your savings is at Chase earning basically nothing. I'd open a high-yield account for your cushion. It's free and takes five minutes. Are you open to that?",
+         why:"At Chase, a thousand dollars earns you about ten cents a year. At four percent it earns forty, and it grows as your cushion grows.",
+         yes:"Good call. I'd go with Harbor Bank High-Yield Savings: 4.10 percent, no minimum, no fees. I'll open it and move your $310 over.",
+         rec:"Harbor Bank High-Yield Savings, 4.10% APY",
+         no:"No problem. Your cushion stays at Chase and I'll still route to it.",
+         value:{amt:1300, kind:"earned", curve:"lin", label:"Interest earned on your cushion"}},
+        {id:"venmo", kind:"move", title:"Move your Venmo balance into the cushion", transfer:{from:"venmo", to:"savings:Cushion", amt:85},
+         detail:() => transferText(S.moves.find(x => x.id === "venmo").transfer),
+         say:() => `You've got $85 just sitting in Venmo. Small, but it's doing nothing there. With your okay, I'll move it to ${resolveTo("savings:Cushion").label} today.`,
+         why:"Money scattered across apps is money you forget about. Everything with a job lives in one place.",
+         value:{amt:0, kind:"protect", label:"Idle money put to work"}},
+        {id:"cushion", kind:"move", title:"Build a $1,000 starter cushion", detail:() => `${fmt(allocAmt("cushion"))} from each paycheck, about ${Math.ceil(690/Math.max(1,allocAmt("cushion"))/2)} months`,
+         say:() => `Before we go all in on the cards, I want a thousand dollars between you and the next surprise. I'll take ${fmt(allocAmt("cushion"))} a paycheck until you're there, about ${Math.ceil(690/Math.max(1,allocAmt("cushion"))/2)} months. Sound good?`,
+         why:"Without a cushion, the next flat tire goes right back on a card at 28 percent and undoes everything. A thousand bucks breaks that loop.",
+         alt:{say:"I could do $50 a paycheck instead. Slower, but more goes to the cards right away. Want that?", detail:"$50 from each paycheck"},
+         alloc:{label:"Cushion", want:100, alt:50, to:"savings:Cushion"},
+         value:{amt:900, alt:700, kind:"saved", curve:"lin", label:"Card interest avoided when surprises hit"}},
+        {id:"cards", kind:"move", title:"Pay off your cards, highest rate first", detail:() => { const s = cardSim(); return `${fmt(allocAmt("cards"))} a paycheck. Target gone by ${monthLabel(s.target)}, all cards by ${monthLabel(s.free)}`; },
+         say:() => { const s = cardSim(); if (allocAmt("cards") < 25) return `Here's the honest math. After what you need to live and the cushion, there's almost nothing left for extra card payments, so the cards just get minimums for now. If you want them gone faster, we'd have to revisit your living number. Your call.`; return `Everything left after your living money and cushion, about ${fmt(allocAmt("cards"))} a paycheck, goes at your cards. Target first, since it's at 30 percent. It's gone by ${monthLabel(s.target)}, then Capital One, then Discover. You're card-debt free by ${monthLabel(s.free)}, and you'll pay about ${fmt(r100(BASE.interest - s.interest))} less interest than if you kept paying minimums.`; },
+         why:"It's called the avalanche. Same total payment, aimed at the most expensive debt first. The payment never shrinks, it just moves down the line. And the minute cushion's full, that money joins in too.",
+         alloc:{label:"Card payoff", rest:true, to:"cards"},
+         value:() => { const s = cardSim(); const saved = BASE.yearly.map((b,i) => Math.max(0, b - (s.yearly[i] || s.interest))); return {amt:r100(BASE.interest - s.interest), kind:"saved", series:saved, label:"Interest you won't pay vs. minimums"}; }}
+      ];
+      const mm = matchMove(this, ans);
+      if (mm) m.push(mm);
+      else m.push({id:"roth", kind:"move", title:"Retirement starts when the cards are gone", detail:"That card payment becomes a Roth IRA contribution",
+        say:() => `You said there's no match, so the cards win for now. The month they're paid off, in ${monthLabel(cardSim().free)}, that same payment keeps going, straight into a Roth IRA. You won't miss money you're already used to not having.`,
+        why:"Paying off a 28 percent card is a guaranteed 28 percent return. Nothing beats that. After, the habit stays and the money starts growing for you.",
+        value:{amt:20600, kind:"growth", curve:"late", label:"Tax-free growth once the cards are gone"}});
+      m.push(safeMove("Budgets fail because your card limit says $7,000 when your plan says $400. I make checking tell the truth."));
+      return m;
+    },
+    hasCards:true,
+    timeline:[
+      {date:"Oct 3", kind:"payday"},
+      {date:"Oct 7", kind:"text", text:"Quick one. Your gym app just renewed at $15 even though we said we'd cancel it. Want me to cancel it and ask for a refund?",
+        chips:[{label:"Cancel it", reply:"Done. Cancelled, and I asked for the $15 back. They usually say yes within a day.", found:"Cancelled a gym app and requested a refund", value:180, per:"/yr"},{label:"Keep it", reply:"Okay, it stays. I'll take it out of your shopping money so the plan still works."}]},
+      {date:"Oct 12", kind:"text", text:"Heads up. Your car payment and rent both hit before Friday's paycheck, so checking is going to be $140 short, and Chase charges $35 for that. Can I move $140 from your cushion to cover it? I'll put it back Friday.",
+        chips:[{label:"Yes, cover it", reply:"Done. $140 moved from your cushion to Chase checking. Friday it goes back automatically.", found:"Covered a $140 shortfall, no overdraft fee", value:35, move:{from:"savings:Cushion", to:"chk", amt:140}},{label:"No, I'll handle it", reply:"Okay. I won't touch it. Just make sure $140 lands in checking before Thursday."}]},
+      {date:"Oct 18", kind:"call"},
+      {date:"Oct 24", kind:"win", text:"Good news. Your total card balance went down this month, for the first time since spring. You didn't feel it, and that's the point.", act:"Card balances down for the first time since spring"},
+      {date:"Oct 29", kind:"creep"}
+    ],
+    pull:{acct:"cushion", amt:300, label:"Pull $300 from the cushion",
+      open:"Hey Maya, it's Jeff. I just saw $300 leave your cushion. That's most of it. What's going on?",
+      reasons:[
+        {label:"Car repair", reply:"Okay. That's exactly what it's for, so good. I'll refill the cushion before the card payments pick back up. You'll be whole in about three weeks.", push:false},
+        {label:"Concert tickets", reply:"I'm going to be straight with you. That's what your going-out money is for, not the cushion. If something breaks next week, it goes on a 28 percent card. Can I move it back and find the $300 across your next two paychecks instead?", push:true},
+        {label:"Just needed it", reply:"Fair, but that's most of your safety net. Can I move it back while we figure out what you actually need it for?", push:true}
+      ],
+      accept:"Thank you. Moving it back now. I'll take $150 from your going-out money the next two paychecks, so you still get to go.",
+      refuse:"Okay, your money, your call. I'll rebuild the cushion before anything extra goes to the cards, so you're covered again in about three weeks."},
+    creep:{cat:"Food delivery", months:[["Jul",400],["Aug",410],["Sep",205],["Oct",340]],
+      text:"Hey. Food delivery is at $340 this month, and we agreed on $200. That's $140 that would have gone to the Target card."}
+  },
+
+  jordan:{
+    first:"Jordan", label:"Jordan, 22", blurb:"New grad, one checking, one savings",
+    salary:72000, matchPct:5, pay:2060, payer:"Northwind Health",
+    banks:["Wells Fargo"],
+    accounts:[
+      {inst:"Wells Fargo",name:"Everyday Checking",type:"cash",bal:6800},
+      {inst:"Wells Fargo",name:"Way2Save Savings",type:"cash",bal:2100,rate:"0.01% APY"}
+    ],
+    job:"Data analyst at Northwind Health, $72,000 salary, started three months ago",
+    living:[
+      {name:"Rent", amt:1350, type:"fixed"},
+      {name:"Phone and utilities", amt:120, type:"fixed"},
+      {name:"Renters insurance", amt:15, type:"fixed"},
+      {name:"Groceries", amt:320, type:"need"},
+      {name:"Gas", amt:140, type:"need"},
+      {name:"Eating out", amt:380, type:"want", trim:{to:300,
+        say:"Honestly, you're in good shape. Only one thing stands out. Eating out is $380 and climbing every month. Want to hold it at $300 so it doesn't creep?",
+        why:"It's not a problem yet. It's just the category that grows fastest in a first job. Holding a line now is easier than cutting later."}},
+      {name:"Shopping", amt:210, type:"want"},
+      {name:"Fun and travel", amt:150, type:"want"},
+      {name:"Subscriptions", amt:45, type:"want"}
+    ],
+    lead:`You've got <em>$8,900</em> in cash and no debt. A clean slate, but almost all of it is earning <em>nothing</em>.`,
+    questions:[
+      {id:"match", q:"I don't see a 401(k) contribution on your paychecks. Does Northwind offer a match?", opts:["Yes, 5%","Not sure","No match"]},
+      {id:"goal", q:"Anything big coming up in the next couple of years?", opts:["Moving out","A car","Travel","Nothing yet"]}
+    ],
+    moves(ans){
+      const goal = ans.goal && ans.goal !== "Nothing yet" ? ans.goal.toLowerCase().replace("a car","car").replace("moving out","moving") : null;
+      const m = [
+        {id:"hysa", kind:"new", opens:{id:"hysa", inst:"Harbor Bank", name:"High-Yield Savings", rate:"4.10% APY", from:"sav"}, title:"Open a high-yield savings account", detail:"Your $2,100 earns 0.01% at Wells Fargo",
+         say:"You're in a great spot, you just haven't set anything up yet. Step one. Your savings earns basically zero. Are you open to opening a high-yield savings account?",
+         why:"Right now your $2,100 makes about twenty cents a year. With the extra cash moved over, a high-yield account makes around $230 a year for doing nothing.",
+         yes:"I'd go with Harbor Bank High-Yield Savings: 4.10 percent, no fees, no minimum. I'll open it and move your $2,100 over.",
+         rec:"Harbor Bank High-Yield Savings, 4.10% APY",
+         no:"Got it. We'll keep using Way2Save. It's not earning much, but I'll still route to it.",
+         value:{amt:1100, kind:"earned", curve:"lin", label:"Interest on your existing savings"}},
+        {id:"floor", kind:"move", title:"Keep a month of bills in checking", transfer:{from:"chk", to:"savings:Emergency fund", amt:5000, alt:3800}, detail:() => "$1,800 stays as your floor. " + transferText(S.moves.find(x => x.id === "floor").transfer),
+         say:() => `You've got $6,800 sitting in checking. Your bills and living money run about $1,800 between paychecks, so I'd keep that as a floor. With your okay, the other $5,000 moves to ${resolveTo("savings:Emergency fund").label} today.`,
+         why:"Checking pays nothing, and a big balance makes you feel richer than your plan says you are.",
+         alt:{say:"I could keep $3,000 in checking instead and move $3,800. More cushion, a bit less interest. Want that?", detail:"$3,000 floor. $3,800 moves to savings today"},
+         value:{amt:2500, alt:1900, kind:"earned", curve:"lin", label:"Interest on cash that was idle in checking"}},
+        {id:"ef", kind:"move", title:"Finish a 3-month emergency fund", detail:goal ? `$250 per paycheck to $7,500, then it switches to your ${goal} fund` : "$250 per paycheck until it hits $7,500",
+         say:`With that move you're at about $7,100 in savings, nearly three months of your living costs already. I'll top it up with $250 a paycheck${goal ? `, and the day it hits $7,500, that $250 switches over to a ${goal} fund, since you said that's coming up` : " until it hits $7,500"}.`,
+         why:"Three months covers a job loss or a big surprise without touching a credit card. You're two paychecks from done.",
+         alloc:{label:"Emergency fund", want:250, alt:250, to:"savings:Emergency fund"},
+         value:{amt:0, kind:"protect", label:"Three months of protection"}}
+      ];
+      const mm = matchMove(this, ans);
+      if (mm) m.push(mm);
+      m.push({id:"roth", kind:"new", opens:{id:"roth", inst:"Fidelity", name:"Roth IRA", type:"invest"}, title:"Open a Roth IRA", detail:"$150 from each paycheck, grows tax-free",
+        say:`${ans.match === "No match" ? "Since there's no match, this matters even more. " : ""}One more account, if you're open to it. A Roth IRA. Money goes in after tax and never gets taxed again. Starting at 22 is basically a cheat code. Want to open one?`,
+        why:"Every dollar you put in now has 40-plus years to grow, and you never pay tax on that growth.",
+        yes:"Nice. I'd go with a Fidelity Roth IRA, no fees. $150 every paycheck, and when you're ready we can talk about what to invest in.",
+        rec:"Fidelity Roth IRA, $150 per paycheck",
+        no:"All good. That $150 rolls into your extra savings, and I'll bring it up again after your first raise.",
+        alloc:{label:"Roth IRA", want:150, alt:150, to:"roth"},
+        value:{amt:14900, kind:"growth", curve:"comp", label:"Tax-free growth in the Roth"}});
+      m.push({id:"extra", kind:"move", title:goal ? `Everything else to your ${goal} fund` : "Everything else to savings", detail:() => `About ${fmt(allocAmt("extra"))} a paycheck, automatically`,
+        say:() => `After your living money and everything above, there's still about ${fmt(allocAmt("extra"))} a paycheck left. Instead of letting it sit in checking, it goes ${goal ? `into a ${goal} fund` : "into savings"} automatically. That's about ${fmt(r100(monthly(allocAmt("extra"))*12))} a year.`,
+        why:"Leftover money in checking gets spent. Money with a label gets saved.",
+        alt:{say:"I could send half to savings and leave half in checking as extra spending money. Want that?", detail:"Half to savings, half stays in checking"},
+        alloc:{label:goal ? goal[0].toUpperCase() + goal.slice(1) + " fund" : "Extra savings", rest:true, to:"savings:" + (goal ? goal[0].toUpperCase() + goal.slice(1) + " fund" : "Extra savings")},
+        value:() => ({amt:r100(allocAmt("extra") * 26 * 2.0), kind:"earned", curve:"lin", label:"Interest on money that would've sat in checking"})});
+      m.push(safeMove("You don't have a spending problem. You have a no-system problem. This is the system."));
+      return m;
+    },
+    timeline:[
+      {date:"Oct 3", kind:"payday"},
+      {date:"Oct 10", kind:"text", text:"Your paycheck came in at $2,240 instead of $2,060. Did you get a raise?",
+        chips:[{label:"Yes, a raise", reply:"Congrats. I'm sending the extra $180 to your Roth before it turns into more takeout. You won't miss money you never saw.", found:"Raise routed to savings before it got spent", value:4680, per:"/yr"},
+               {label:"One-time bonus", reply:"Nice. I put the extra $180 toward your emergency fund. Two more paychecks and it's done."}]},
+      {date:"Oct 14", kind:"auto", text:"Your first 401(k) match just landed. Northwind put in $138 this paycheck. That's money you weren't getting last month.", found:"First employer match landed", value:138, if:(d, ans) => d.match && d.match.status !== "skipped" && /^yes/i.test(ans.match||"")},
+      {date:"Oct 20", kind:"call"},
+      {date:"Oct 24", kind:"win", text:"Your emergency fund just hit $7,500. That's three full months covered. Starting next paycheck, that $250 goes to the next goal automatically.", act:"Emergency fund complete. $250 rerouted"},
+      {date:"Oct 29", kind:"creep"}
+    ],
+    pull:{acct:"emergency fund", amt:5000, label:"Pull $5,000 from the emergency fund",
+      open:"Hey Jordan, it's Jeff. Quick one. $5,000 just came out of your emergency fund. That's most of it. What's up?",
+      reasons:[
+        {label:"Security deposit", reply:"Okay, moving out. That's a real expense, and it makes sense. I'll rebuild the fund at $400 a paycheck instead of $250 and push the Roth back a couple of months. Sound fair?", push:false},
+        {label:"Buying a car", reply:"Hold on. That's not what the emergency fund is for. Let's set up a car fund instead. Can I put the $5,000 back and we plan the car properly?", push:true},
+        {label:"Trip with friends", reply:"I'm going to push back a little. That's your safety net, and $5,000 is two thirds of it. What if we put it back and I set up a travel fund that gets you there by spring?", push:true}
+      ],
+      accept:"Perfect. Putting it back now. I'll set up the new fund tonight and walk you through it tomorrow.",
+      refuse:"Your call. I'll rebuild the fund before anything else gets money, so you're covered again in about four months."},
+    creep:{cat:"Eating out", months:[["Jul",270],["Aug",265],["Sep",300],["Oct",380]],
+      text:"Heads up. Eating out is at $380 this month, and we said $300. It's coming out of your extra savings, so no stress. Just wanted you to see it."}
+  },
+
+  priya:{
+    first:"Priya", label:"Priya, 25", blurb:"Already doing almost everything right",
+    salary:95000, matchPct:6, pay:2600, payer:"Halcyon Advisory",
+    banks:["Chase","Ally","American Express","Fidelity","Schwab"],
+    accounts:[
+      {inst:"Chase",name:"Total Checking",type:"cash",bal:4200},
+      {inst:"Ally",name:"Online Savings",type:"cash",bal:18500,rate:"3.80% APY"},
+      {inst:"American Express",name:"Gold card",type:"credit",bal:-1100,rate:"Paid in full monthly"},
+      {inst:"Fidelity",name:"401(k)",type:"invest",bal:22000,rate:"6% in, full match"},
+      {inst:"Fidelity",name:"Roth IRA",type:"invest",bal:13000},
+      {inst:"Schwab",name:"Brokerage",type:"invest",bal:9400}
+    ],
+    job:"Consultant at Halcyon Advisory, $95,000 salary, already contributing 6% to her 401(k) with the full match",
+    living:[
+      {name:"Rent", amt:1700, type:"fixed"},
+      {name:"Phone and utilities", amt:150, type:"fixed"},
+      {name:"Groceries", amt:280, type:"need", card:true},
+      {name:"Transport", amt:120, type:"need", card:true},
+      {name:"Dining", amt:610, type:"want", card:true, trim:{to:450,
+        say:"You're clearly doing this right, so I'll keep it short. Dining is $610 a month, and it's the one thing growing. I'd hold it at $450. That alone gets you to the house about two months sooner.",
+        why:"It's the only category that's grown three months in a row. Holding it steady is easier than cutting later."}},
+      {name:"Travel", amt:400, type:"want", card:true},
+      {name:"Shopping", amt:300, type:"want", card:true},
+      {name:"Subscriptions", amt:70, type:"want", card:true}
+    ],
+    lead:`You've got <em>$22,700</em> in cash, <em>$44,400</em> invested, and a card you pay off every month. Honestly, you're ahead. There's still money on the table.`,
+    questions:[
+      {id:"home", q:"Is buying a home something you want in the next few years?", opts:["Yes, within 3 years","Someday","No"]},
+      {id:"hdhp", q:"Your paychecks show a health plan deduction that looks like a high-deductible plan. Is that right?", opts:["Yes","No, it's a PPO","Not sure"]}
+    ],
+    moves(ans){
+      const home = ans.home || "Yes, within 3 years";
+      const goalName = /^yes/i.test(home) ? "a down payment fund" : /someday/i.test(home) ? "a house fund" : "your Schwab brokerage";
+      const goalTo = /^no$/i.test(home) ? "schwab" : "savings:House";
+      const m = [
+        {id:"trim", kind:"move", title:"Trim your emergency fund to 6 months", transfer:{from:"savings:Emergency fund", to:goalTo, amt:4500, alt:2100}, detail:() => "Keeps $14,000 for emergencies. " + transferText(S.moves.find(x => x.id === "trim").transfer),
+         say:`Six months of your actual living costs is about $14,000, and your emergency fund is $18,500. I'd move the extra $4,500 into ${goalName}.`,
+         why:/^no$/i.test(home) ? "You said no house, so that $4,500 is long-term money. Invested, it can grow instead of sitting in savings." : "Money past six months is just sitting. Labeled for the house, it has a job and a deadline.",
+         alt:{say:"I could keep eight months instead and move $2,100. More conservative. Want that?", detail:`Keep 8 months. $2,100 goes to ${goalName}`},
+         value:/^no$/i.test(home) ? {amt:2200, alt:1000, kind:"growth", curve:"comp", label:"Extra growth on money that was idle"} : {amt:0, kind:"protect", label:"Same interest, now working toward the house"}}
+      ];
+      if (/^yes/i.test(ans.hdhp||"")) m.push({id:"hsa", kind:"new", opens:{id:"hsa", inst:"Fidelity", name:"HSA", type:"invest"}, title:"Open a Health Savings Account", detail:"Your plan qualifies and you're not using one",
+         say:"You confirmed the high-deductible plan, but there's no HSA. It's the only account that's tax-free going in, growing, and coming out for medical. Are you open to opening one?",
+         why:"At your bracket, $3,900 a year into an HSA saves you about $1,200 in taxes. If you don't spend it, it becomes another retirement account.",
+         yes:"I'd go with a Fidelity HSA, no fees. $150 a paycheck, pre-tax. That's about $1,200 a year back.",
+         rec:"Fidelity HSA, $150 per paycheck pre-tax",
+         no:"Okay. I'll flag it again at open enrollment.",
+         payCut:110, value:{amt:16500, kind:"saved", curve:"comp", label:"Taxes saved plus growth in the HSA"}});
+      else if (/not sure/i.test(ans.hdhp||"")) m.push({id:"hsa", kind:"check", title:"Check if you can use an HSA", detail:"Jeff confirms your plan type before opening anything",
+         say:"You weren't sure about your health plan, so I won't open anything yet. If it's high-deductible, an HSA could save you about $1,200 a year in taxes. Want me to check your benefits and come back to you?",
+         why:"The HSA is the best tax deal there is, but only if your plan qualifies. Worth five minutes to find out.",
+         yesLine:"Done. I'll confirm your plan and only bring the HSA back if you qualify.", noLine:"Okay, leaving it off.",
+         rec:"Checking plan eligibility", value:{amt:0, pending:16500, kind:"saved", curve:"comp", label:"Possible HSA savings, waiting on plan check"}});
+      m.push({id:"float", kind:"move", title:"Lower the checking float", transfer:{from:"chk", to:goalTo, amt:1700}, detail:() => "Keeps $2,500 in checking. " + transferText(S.moves.find(x => x.id === "float").transfer),
+         say:`Checking usually sits around $4,200, but between your bills and living money you never dip below $2,000. I'd keep $2,500 and sweep the other $1,700 to ${goalName}.`,
+         why:"That $1,700 earns nothing in checking. Moved, it's working toward something.",
+         value:{amt:820, kind:"earned", curve:"lin", label:"Interest on idle checking cash"}});
+      m.push({id:"amex", kind:"move", title:"Rethink the Amex Gold", detail:"$325 fee. Based on your spending you earned about $190 back",
+         say:"This one's your call. Based on what you actually spent, the Gold earned you about $190 last year and costs $325. A no-fee card would put you about $135 ahead every year. Want that on the list?",
+         why:"You spend a lot on dining, but not enough to clear the fee.",
+         value:{amt:1350, kind:"saved", curve:"lin", label:"Annual fees you stop paying"}});
+      if (/^yes/i.test(home)) m.push({id:"auto", kind:"move", title:"Automate the down payment", detail:"$500 per paycheck to the house fund",
+         say:"You said within three years, so $500 a paycheck goes into the house fund automatically. With the $6,200 we just moved, you're at about $45,000 by fall 2029.",
+         why:"Three years is too short to risk it in stocks. It stays in high-yield, safe, and grows on schedule.",
+         alt:{say:"I could do $750 and get you there about a year sooner. Want that?", detail:"$750 per paycheck. About $45,000 by fall 2028"},
+         alloc:{label:"Down payment", want:500, alt:750, to:"savings:House"}, value:{amt:2400, alt:2900, kind:"earned", curve:"lin", label:"Interest earned while you save for the house"}});
+      else if (/someday/i.test(home)) m.push({id:"auto", kind:"move", title:"Start a house fund", detail:"$250 per paycheck, in case someday comes sooner",
+         say:"You said someday, so I'd hedge. $250 a paycheck into a house fund. If the house gets closer, I'll shift more.",
+         why:"Money you might need in three years shouldn't be in stocks.",
+         alloc:{label:"House fund", want:250, alt:250, to:"savings:House"}, value:{amt:1200, kind:"earned", curve:"lin", label:"Interest on the house fund"}});
+      m.push({id:"extra", kind:"move", title:"Invest what's left over", detail:() => `About ${fmt(allocAmt("extra"))} a paycheck into your Schwab brokerage`,
+        say:() => `After your living money and everything above, there's still about ${fmt(allocAmt("extra"))} a paycheck left over. Right now it just builds up in checking. I'd send it to your Schwab brokerage automatically.`,
+        why:"You've got the cushion and the house covered. Money you won't need for ten years should be growing.",
+        alt:{say:"I could send half and leave half in checking as extra spending money. Want that?", detail:"Half to Schwab, half stays in checking"},
+        alloc:{label:"Schwab", rest:true, to:"schwab"},
+        value:() => ({amt:r100(allocAmt("extra") * 26 * 3.816), kind:"growth", curve:"comp", label:"Market growth on money that sat in checking"})});
+      m.push(safeMove("You're not overspending. You just had no line, so everything leftover drifted. Now it has a job."));
+      return m;
+    },
+    timeline:[
+      {date:"Oct 3", kind:"payday"},
+      {date:"Oct 8", kind:"text", text:"Ally just cut its savings rate to 3.50%. Harbor Bank is at 4.10%. Moving your $14,000 would earn about $85 more a year. Want me to switch it?",
+        chips:[{label:"Switch it", reply:"On it. Your money's moving to Harbor and will be there by Thursday. Nothing else changes.", found:"Moved savings to a better rate", value:85, per:"/yr"},{label:"Leave it at Ally", reply:"Fair. I'll keep watching, and I'll flag it if the gap gets bigger."}]},
+      {date:"Oct 15", kind:"text", text:"Your Amex Gold fee of $325 posts in three weeks. If you want to downgrade, now's the time. Want me to start it?",
+        chips:[{label:"Downgrade it", reply:"Done. You'll move to the no-fee card. Same account, same credit history, and no $325.", found:"Avoided a $325 annual fee", value:325},{label:"Keep the Gold", reply:"Okay. I'll remind you to use the dining credits each month so you at least break even."}]},
+      {date:"Oct 20", kind:"text", text:"A $6,000 deposit from Halcyon just landed, labeled bonus. My take: $3,000 to your goal, $2,000 to Schwab, and $1,000 is yours to enjoy. Good?",
+        chips:[{label:"Do it", reply:"Done. Enjoy the thousand. You earned it.", found:"Bonus split before it got spent", value:5000},{label:"I want more for fun", reply:"Fair. $2,000 for you, $2,500 to your goal, and $1,500 to Schwab. Set up that way.", found:"Bonus split before it got spent", value:4000}]},
+      {date:"Oct 24", kind:"call"},
+      {date:"Oct 29", kind:"creep"}
+    ],
+    pull:{acct:"house fund", amt:8000, label:"Pull $8,000 from the house fund",
+      open:"Hey Priya, Jeff here. I saw $8,000 move out of your house fund. That's a big one. What's it for?",
+      reasons:[
+        {label:"Investing it", reply:"I get the instinct, but that's three-year money. If the market drops 20 percent the year you want to buy, the house slips. Can I put it back and we bump Schwab with your next bonus instead?", push:true},
+        {label:"Family emergency", reply:"I'm sorry. Do what you need to do. I'll pause the house fund and let your emergency fund cover the gap first. Want me to rerun the house timeline later this week?", push:false},
+        {label:"Travel", reply:"That's a lot of trip from the house fund. What if I put it back and set up a travel fund from your extra money instead?", push:true}
+      ],
+      accept:"Done. It's back. I'll walk you through the new fund tomorrow.",
+      refuse:"Understood. I'll push the house timeline back about five months and keep everything else running."},
+    creep:{cat:"Dining", months:[["Jul",470],["Aug",490],["Sep",610],["Oct",590]],
+      text:"Heads up. Dining is at $590 this month, and we said $450. It's coming out of your Schwab money, so it's not a crisis. Just keeping you honest."}
+  }
+};
+function safeMove(why){
+  return {id:"safe", kind:"move", title:"Your living money stays yours", detail:() => `${fmt(spendPP())} a paycheck to live on, plus bills covered`,
+    say:() => `Last one. Every paycheck, your bills get paid first, and ${fmt(spendPP())} stays in checking for groceries, going out, whatever you want. That's the number we agreed on, and I won't touch it. If checking says it, you can spend it.`,
+    why, value:{amt:0, kind:"protect", label:"Your living money, protected"}};
+}
+
+/* ================= State ================= */
+const S = {key:"maya", screen:"welcome", q:0, ans:{}, mi:0, moves:[], dec:{}, voice:true, handler:null, history:[], inCall:false, connected:new Set(), pay:null, side:0, found:[], date:"Oct 1", safe:null, living:[], goals:[], planning:false};
+const p = () => P[S.key];
+const ok = id => S.dec[id] && S.dec[id].status !== "skipped";
+const active = m => { const dc = S.dec[m.id]; return dc ? dc.status !== "skipped" : S.planning; };
+
+/* ================= Budget engine ================= */
+function livingList(){ return S.living.length ? S.living : p().living; }
+const sumType = t => livingList().filter(c => !t || c.type === t).reduce((s,c) => s + c.amt, 0);
+const livingM = () => sumType();
+const takeHomeM = () => monthly(S.pay || p().pay);
+function payNow(){
+  let pay = S.pay || p().pay;
+  S.moves.forEach(m => { if (m.payCut && active(m)) pay -= S.dec[m.id] && S.dec[m.id].status === "adjusted" && m.payCutAlt ? m.payCutAlt : m.payCut; });
+  return pay;
+}
+const billsPP = () => perPay(sumType("fixed"));
+function spendPP(){ return perPay(sumType("need") + sumType("want")) - S.goals.filter(g => g.from === "spend").reduce((s,g) => s + g.pp, 0); }
+function allocs(opts = {}){
+  let avail = payNow() - billsPP() - spendPP();
+  const out = [];
+  S.moves.forEach(m => {
+    if (!m.alloc || m.alloc.rest || !active(m)) return;
+    const dc = S.dec[m.id]; const want = dc && dc.status === "adjusted" ? m.alloc.alt : m.alloc.want;
+    const amt = Math.max(0, Math.min(want, avail)); out.push({label:m.alloc.label, amt, id:m.id}); avail -= amt;
+  });
+  if (!opts.noGoals) S.goals.forEach(g => { out.push({label:g.name, amt:g.pp, id:"goal"}); if (g.from === "rest") avail -= g.pp; });
+  const rest = S.moves.find(m => m.alloc && m.alloc.rest && active(m));
+  if (rest){
+    const half = S.dec[rest.id] && S.dec[rest.id].status === "adjusted";
+    const amt = Math.max(0, half ? avail / 2 : avail);
+    out.push({label:rest.alloc.label, amt, id:rest.id}); avail -= amt;
+  }
+  if (avail > 5) out.push({label:"Extra in checking", amt:avail, id:"left"});
+  return out;
+}
+const allocAmt = id => { const a = allocs().find(x => x.id === id); return a ? Math.round(a.amt) : 0; };
+function splitNow(){
+  return [["Bills", billsPP()], ...allocs().filter(a => a.amt > 0.5).map(a => [a.label, a.amt]), ["Yours to spend", spendPP()]];
+}
+function cardSim(goalsOverride){
+  const goals = goalsOverride || S.goals;
+  const restBase = allocs({noGoals:true}).find(a => a.id === "cards"); const R0 = restBase ? restBase.amt : 0;
+  const cush = allocAmt("cushion"); const cm = cush ? Math.ceil((690 / cush) / PPM) : 0;
+  return simCards(m => monthly(R0 + (m >= cm ? cush : 0) - goals.filter(g => g.from === "rest" && m < g.months).reduce((s,g) => s + g.pp, 0)));
+}
+
+/* ================= ROI ================= */
+function curveAt(curve, y){
+  if (curve === "comp") return (Math.pow(1.07, y) - 1) / (Math.pow(1.07, 10) - 1);
+  if (curve === "debt") return Math.min(1, y / 1.5);
+  if (curve === "late") return y <= 1.5 ? 0 : (Math.pow(1.07, y - 1.5) - 1) / (Math.pow(1.07, 8.5) - 1);
+  return y / 10;
+}
+function roi(){
+  const rows = S.moves.filter(m => m.value).map(m => {
+    const dc = S.dec[m.id] || {status:"approved"}; const v = txt(m.value);
+    if (dc.status === "skipped") return {m, v, amt:0, lost:v.amt || v.pending || 0, state:"skip"};
+    if (v.pending) return {m, v, amt:0, pending:v.pending, state:"pend"};
+    return {m, v, amt:dc.status === "adjusted" && v.alt ? v.alt : v.amt, state:"ok"};
+  });
+  const total = rows.reduce((s,r) => s + r.amt, 0);
+  const years = Array.from({length:11}, (_,y) => rows.reduce((s,r) => s + (r.v.series ? (r.v.series[y] || 0) * (r.amt / Math.max(1, r.v.amt)) : r.amt * curveAt(r.v.curve || "lin", y)), 0));
+  return {rows, total, years};
+}
+
+/* ================= Live AI (optional) ================= */
+let samplerP = null, liveAI = null;
+function getSampler(){
+  if (!samplerP){
+    samplerP = (window.claude && typeof window.claude.use === "function") ? window.claude.use("sample").catch(() => null) : Promise.resolve(null);
+    samplerP.then(s => { liveAI = !!s; paintAI(); });
+  }
+  return samplerP;
+}
+function paintAI(){
+  const el = $("#aiStatus"); el.className = "status" + (liveAI ? " on" : "");
+  el.innerHTML = "<i></i>" + (liveAI ? "Live AI replies on. Anything typed or said gets a real answer." : "Scripted mode. Chips and common phrases work; open the published link in Claude for live replies.");
+}
+const STYLE = `You are Jeff, the voice of a money platform called Jeff that actually runs people's money for them, talking live with someone in a product demo. Think of the family member everyone wishes they had managing their money: warm, direct, remembers what matters to them, protective of their future, and willing to push back on a bad idea once, kindly, before respecting their call. You never lecture. Your reply is spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500". Only use facts in the person's data below. Never state something as fact that the person hasn't confirmed. Never invent accounts.`;
+function profileText(){
+  const d = p();
+  const accts = d.accounts.map(a => `- ${a.inst} ${a.name}: ${fmt(a.bal)}${a.rate ? " (" + a.rate + ")" : ""}`).join("\n");
+  const liv = livingList().map(c => `${c.name} $${Math.round(c.amt)}/mo (${c.type}${c.status ? ", " + c.status : ""})`).join(", ");
+  const ans = d.questions.map(q => S.ans[q.id] ? `Q: ${q.q} A: ${S.ans[q.id]}` : "").filter(Boolean).join("\n");
+  const plan = S.moves.map((m,i) => `${i+1}. ${m.title}: ${S.dec[m.id] && S.dec[m.id].detail ? S.dec[m.id].detail : txt(m.detail)} [${S.dec[m.id] ? S.dec[m.id].status : "not yet discussed"}]`).join("\n");
+  const goals = S.goals.map(g => `${g.name}: ${fmt(g.amount)} by ${g.by}, ${fmt(g.pp)} per paycheck`).join("; ");
+  return `Name: ${d.first}\nWork: ${d.job}\nTake-home: ${fmt(S.pay || d.pay)} every two weeks (${fmt(takeHomeM())}/mo)${S.side ? `, plus about ${fmt(S.side)} a month in other income` : ""}\nAccounts:\n${accts}\nMonthly living costs agreed with Jeff: ${liv} (total ${fmt(livingM())}/mo)\nAnswers:\n${ans || "none"}\nPlan:\n${plan || "not built yet"}\nPaycheck split now: ${S.moves.length ? splitNow().map(x => x[0] + " " + fmt(x[1])).join(", ") : "n/a"}\nGoals: ${goals || "none"}`;
+}
+async function llm(task, schema){
+  const s = await Promise.race([getSampler(), sleep(3500).then(() => null)]);
+  if (!s) return null;
+  const recent = S.history.slice(-8).map(h => `${h.who}: ${h.text}`).join("\n");
+  const prompt = `${STYLE}\n\nPERSON'S DATA\n${profileText()}\n\nRECENT CONVERSATION\n${recent || "(none)"}\n\nTASK\n${task}\n\nReturn only JSON, no code fences, matching: ${schema}`;
+  try { return await s.json(prompt, {modelTier:"quick", cache:false}); }
+  catch(e){ if (e && e.code === "not_granted"){ liveAI = false; paintAI(); } return null; }
+}
+
+/* ================= Voice ================= */
+let voice = null, sayId = 0;
+function pickVoice(){
+  const vs = speechSynthesis.getVoices();
+  const pref = ["Daniel","Aaron","Google UK English Male","Microsoft Andrew","Microsoft Guy","Alex","Evan","Tom","Fred"];
+  for (const n of pref){ const v = vs.find(v => v.name.includes(n)); if (v){ voice = v; return; } }
+  voice = vs.find(v => /^en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if ("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function setSpeaking(on){ $("#dwave").classList.toggle("speaking", on); $("#call").classList.toggle("speaking", on && S.inCall); }
+function hush(){ sayId++; if ("speechSynthesis" in window) speechSynthesis.cancel(); setSpeaking(false); }
+function saidEl(){ return S.inCall ? $("#csaid") : $("#said"); }
+function speak(text){
+  const el = saidEl(); const id = ++sayId;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  S.history.push({who:"Jeff", text});
+  el.classList.remove("thinking"); el.textContent = ""; setSpeaking(true);
+  const words = text.split(/\s+/);
+  const useVoice = S.voice && "speechSynthesis" in window;
+  let spoken = !useVoice;
+  if (useVoice){
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) u.voice = voice; u.rate = 1.05; u.pitch = .95;
+    u.onend = u.onerror = () => { spoken = true; };
+    speechSynthesis.speak(u);
+    setTimeout(() => { spoken = true; }, words.length * 430 + 2500);
+  }
+  const per = useVoice ? 290 : 45;
+  return new Promise(res => {
+    let i = 0;
+    const tick = () => {
+      if (id !== sayId){ res(false); return; }
+      if (i < words.length){ el.textContent += (i ? " " : "") + words[i++]; el.scrollTop = el.scrollHeight; setTimeout(tick, per); }
+      else if (!spoken){ setTimeout(tick, 120); }
+      else { setSpeaking(false); res(true); }
+    };
+    tick();
+  });
+}
+function thinking(){ const el = saidEl(); el.classList.add("thinking"); el.textContent = "Jeff is thinking…"; }
+function youSaid(t){ const el = S.inCall ? $("#cyou") : $("#you"); if (el) el.textContent = "You: " + t; S.history.push({who:"User", text:t}); }
+function chipsBox(){ return S.inCall ? $("#cchips") : $("#chips"); }
+function setChips(list){
+  const box = chipsBox(); box.innerHTML = "";
+  list.forEach(c => {
+    const b = document.createElement("button"); b.className = "chip"; b.type = "button"; b.textContent = c.label;
+    b.onclick = () => { hush(); youSaid(c.say || c.label); box.innerHTML = ""; c.fn(); };
+    box.appendChild(b);
+  });
+}
+function clearChips(){ const b = chipsBox(); if (b) b.innerHTML = ""; }
+async function submit(text){
+  text = text.trim(); if (!text || !S.handler) return;
+  hush(); youSaid(text); clearChips();
+  await S.handler(text);
+}
+$("#ask").addEventListener("submit", e => { e.preventDefault(); const v = $("#askin").value; $("#askin").value = ""; submit(v); });
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function listen(btn, input){
+  if (!SR){ input.placeholder = "Mic isn't available here. Type instead."; input.focus(); return; }
+  hush();
+  const rec = new SR(); rec.lang = "en-US"; rec.interimResults = true;
+  btn.classList.add("live"); input.placeholder = "Listening…";
+  let final = "";
+  rec.onresult = e => { final = Array.from(e.results).map(r => r[0].transcript).join(" "); input.value = final; };
+  rec.onerror = () => { input.placeholder = "Mic blocked here. Type instead."; };
+  rec.onend = () => { btn.classList.remove("live"); input.placeholder = "Talk to Jeff"; if (final){ input.value = ""; submit(final); } };
+  try { rec.start(); } catch(e){ btn.classList.remove("live"); }
+}
+$("#mic").onclick = () => listen($("#mic"), $("#askin"));
+
+/* ================= Screens ================= */
+function logo(inst){ const b = BANKS[inst] || ["#555", inst[0]]; return `<span class="logo" style="background:${b[0]}">${b[1]}</span>`; }
+function show(html, dock){ $("#screen").innerHTML = html; $("#screen").scrollTop = 0; $("#dock").classList.toggle("show", !!dock); }
+
+function welcome(){
+  hush(); S.screen = "welcome"; S.handler = null;
+  const bars = Array.from({length:22}, (_,i) => `<span style="animation-delay:${(i*0.11)%1.6}s"></span>`).join("");
+  show(`<div class="welcome"><div class="top">
+      <h1 class="wordmark">Jeff</h1>
+      <p class="tag">Your money, run for you. Connect your accounts, talk it through, and Jeff handles the rest.</p>
+      <div class="bigwave" aria-hidden="true">${bars}</div></div>
+    <div class="bottom"><button class="primary" id="go">Connect my accounts</button>
+      <p class="fine">Demo with sample data. No real accounts are touched.</p></div></div>`);
+  $("#go").onclick = () => { if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); connect(); };
+}
+
+function connect(){
+  S.screen = "connect"; S.connected = new Set();
+  const d = p();
+  const others = ["Navy Federal","UFCU","Amplify Credit Union"].filter(b => !d.banks.includes(b));
+  const row = (b, mine) => `<li class="bank">${logo(b)}<div class="nm"><b>${b}</b><span>${mine ? "Recommended for you" : "Bank or credit union"}</span></div>
+    <button class="cbtn" data-bank="${b}" ${mine ? "" : 'data-other="1"'}>Connect</button></li>`;
+  show(`<div class="pad">
+    <h1 class="title">Connect your accounts</h1>
+    <p class="sub">Every checking, savings, card, loan and investment account, including small credit unions. The more Jeff sees, the better the plan.</p>
+    <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="Search 12,000+ banks and credit unions"></label>
+    <ul class="banks">${d.banks.map(b => row(b, true)).join("")}${others.map(b => row(b, false)).join("")}</ul>
+    <p class="more">Don't see yours? Jeff can read a statement upload too.</p>
+  </div>
+  <div class="footer"><button class="primary" id="cont" disabled>See where I stand</button></div>`);
+  document.querySelectorAll(".cbtn").forEach(b => b.onclick = async () => {
+    if (b.dataset.other){ b.textContent = "Not used in this demo"; return; }
+    if (b.classList.contains("done")) return;
+    b.className = "cbtn busy"; b.textContent = "Connecting…";
+    await sleep(900 + Math.random()*700);
+    const n = d.accounts.filter(a => a.inst === b.dataset.bank).length;
+    b.className = "cbtn done"; b.textContent = n === 1 ? "1 account" : n + " accounts";
+    S.connected.add(b.dataset.bank);
+    if (S.connected.size === d.banks.length) $("#cont").disabled = false;
+  });
+  $("#cont").onclick = () => state();
+}
+
+function acctRow(a){
+  return `<div class="acct" data-acct="${esc(a.name)}">${logo(a.inst)}<div class="nm"><b>${a.name}</b><span>${a.inst}</span></div>
+    <div class="bal num"><span class="${a.bal < 0 ? "neg" : ""}">${fmt(a.bal)}</span>${a.rate ? `<small>${a.rate}</small>` : ""}</div></div>`;
+}
+function incomeHTML(){
+  const d = p(); const pay = S.pay || d.pay; const conf = S.ans.income;
+  return `<div class="group" id="incomeG"><h4><span>Income</span><span class="num">${fmt(pay*PPM)}/mo</span></h4>
+    <div class="incomerow"><div class="nm"><b>${d.payer} paycheck</b><span>Every other Friday into checking${conf ? "" : ", needs your confirmation"}</span></div><div class="bal num">${fmt(pay)}</div></div>
+    ${S.side ? `<div class="incomerow"><div class="nm"><b>Other income</b><span>You told Jeff about this</span></div><div class="bal num">${fmt(S.side)}/mo</div></div>` : ""}</div>`;
+}
+function groups(){
+  const d = p(); const names = {cash:"Cash",credit:"Credit cards",loan:"Loans",invest:"Investments"};
+  return Object.keys(names).map(t => {
+    const as = d.accounts.filter(a => a.type === t); if (!as.length) return "";
+    const tot = as.reduce((s,a) => s + a.bal, 0);
+    return `<div class="group"><h4><span>${names[t]}</span><span class="num">${fmt(tot)}</span></h4>${as.map(acctRow).join("")}</div>`;
+  }).join("");
+}
+function repaintIncome(){ const g = $("#incomeG"); if (g){ g.outerHTML = incomeHTML(); $("#incomeG").classList.add("hl"); } }
+
+async function state(){
+  S.screen = "state"; S.q = 0; S.ans = {}; S.history = []; S.pay = null; S.side = 0; S.living = [];
+  const d = p();
+  show(`<div class="pad"><h1 class="title">Here's where you stand</h1><p class="lead">${d.lead}</p>${incomeHTML()}${groups()}</div>`, true);
+  $("#you").textContent = "";
+  S.handler = freeQ;
+  if (!(await speak(`Got everything, ${d.first}. Before I build your plan, I want to make sure I've read you right.`))) return;
+  askIncome();
+}
+async function askIncome(){
+  const d = p();
+  $("#incomeG").classList.remove("hl"); void $("#incomeG").offsetWidth; $("#incomeG").classList.add("hl");
+  S.pending = "income";
+  if (!(await speak(`First, your income. I see ${fmt(d.pay)} landing from ${d.payer} every other Friday. That's about ${fmt(d.pay*PPM)} a month take-home. Is that right?`))) return;
+  setChips([{label:"Yes, that's right", fn:() => incomeYes()},{label:"It's different", fn:() => incomeDiff()},{label:"I have other income too", fn:() => incomeSide()}]);
+}
+async function incomeYes(){ S.ans.income = "Confirmed"; S.pending = null; repaintIncome(); if (!(await speak("Perfect. That's the number I'll plan around."))) return; S.q = 0; askQ(); }
+async function incomeDiff(){
+  S.pending = "payAmt"; const d = p();
+  if (!(await speak("Got it. What's your usual take-home per paycheck? A rough number is fine."))) return;
+  setChips([fmt(d.pay - 150), fmt(d.pay + 150), fmt(d.pay + 400)].map(v => ({label:v, fn:() => setPay(parseMoney(v))})));
+}
+async function setPay(n){
+  if (!n || n < 200){ await speak("Sorry, I didn't catch a number. Roughly how much hits your account each paycheck?"); return; }
+  S.pay = Math.round(n); S.ans.income = `Corrected to ${fmt(S.pay)} per paycheck`; S.pending = null; repaintIncome();
+  if (!(await speak(`Updated. ${fmt(S.pay)} every two weeks, about ${fmt(S.pay*PPM)} a month. If it ever changes, I'll notice.`))) return;
+  S.q = 0; askQ();
+}
+async function incomeSide(){
+  S.pending = "side";
+  if (!(await speak("Nice. Roughly how much a month?"))) return;
+  setChips(["$300","$600","$1,000"].map(v => ({label:v + " a month", fn:() => setSide(parseMoney(v))})));
+}
+async function setSide(n){
+  if (!n){ await speak("Roughly how much a month? A ballpark is fine."); return; }
+  S.side = Math.round(n); S.ans.income = `Confirmed paycheck, plus about ${fmt(S.side)} a month in other income`; S.pending = null; repaintIncome();
+  if (!(await speak(`Got it. I'll plan around your paycheck and route that extra ${fmt(S.side)} straight to your goals when it lands, so it never just disappears.`))) return;
+  S.q = 0; askQ();
+}
+async function freeQ(text){
+  if (S.pending === "payAmt") return setPay(parseMoney(text));
+  if (S.pending === "side") return setSide(parseMoney(text));
+  if (S.pending === "income"){
+    if (/yes|right|correct|yep|yeah/i.test(text)) return incomeYes();
+    const n = parseMoney(text); if (n) return setPay(n);
+    if (/other|side|also|extra/i.test(text)) return incomeSide();
+    return incomeDiff();
+  }
+  const q = p().questions[S.q]; if (!q) return;
+  let pick = q.opts.find(o => text.toLowerCase().includes(o.toLowerCase().split(/[ ,]/)[0]));
+  if (!pick && q.id === "match"){ pick = /not sure|don'?t know|no idea|unsure|maybe/i.test(text) ? "Not sure" : /\bno\b|don'?t|doesn'?t/i.test(text) ? "No match" : /yes|yeah|they do|\d/.test(text) ? q.opts[0] : null; }
+  if (!pick && /not sure|don'?t know/i.test(text)) pick = q.opts.find(o => /not sure/i.test(o));
+  if (!pick && /\bno\b|nope|nah/i.test(text)) pick = q.opts.find(o => /^no/i.test(o));
+  if (!pick && /yes|yeah|yep/i.test(text)) pick = q.opts[0];
+  if (!pick){ if (!(await speak("Got it. Just so I get the plan right, which of these is closest?"))) return; return setChips(q.opts.map(o => ({label:o, fn:() => answerQ(o)}))); }
+  answerQ(pick);
+}
+async function askQ(){
+  const d = p(); const q = d.questions[S.q];
+  if (!q) return living();
+  if (q.hl){ const el = document.querySelector(`[data-acct="${q.hl}"]`); if (el){ el.classList.remove("hl"); void el.offsetWidth; el.classList.add("hl"); el.scrollIntoView({block:"center", behavior:"smooth"}); } }
+  if (!(await speak(q.q))) return;
+  setChips(q.opts.map(o => ({label:o, fn:() => answerQ(o)})));
+}
+async function answerQ(t){
+  const q = p().questions[S.q]; if (!q) return;
+  S.ans[q.id] = t; S.q++;
+  let ack = ["Got it.","Perfect.","Okay, that helps."][(S.q-1) % 3];
+  if (q.id === "match" && /not sure/i.test(t)) ack = "No problem. I won't assume either way.";
+  if (q.id === "hdhp" && /not sure/i.test(t)) ack = "Okay, I'll check before I suggest anything that depends on it.";
+  if (!(await speak(ack))) return;
+  askQ();
+}
+
+/* ---------- What it costs you to live ---------- */
+function livingHTML(){
+  const L = livingM(), M = takeHomeM(), left = M - L;
+  const names = {fixed:"Fixed bills", need:"Essentials", want:"Lifestyle"};
+  const cardTot = livingList().filter(c => c.card).reduce((s,c) => s + c.orig, 0);
+  const cardTop = livingList().filter(c => c.card && c.type === "want").sort((a,b) => b.orig - a.orig).slice(0,3).map(c => c.name.toLowerCase()).join(", ");
+  const rows = t => livingList().filter(c => c.type === t).map(c => {
+    const i = livingList().indexOf(c);
+    const tag = c.status === "trimmed" || c.status === "halfway" ? `<span class="tg trim">${c.status === "halfway" ? "Met halfway" : "Trimmed"}</span>` : c.status === "protected" ? `<span class="tg prot">Protected</span>` : "";
+    return `<div class="lrow ${S.focus === i ? "focus" : ""}" id="lr${i}"><div class="nm">${c.name}${tag}${c.card ? `<small>On your cards</small>` : ""}</div><div class="amt num">${c.amt !== c.orig ? `<s>${fmt(c.orig)}</s>` : ""}${fmt(c.amt)}</div></div>`;
+  }).join("");
+  return `<div class="pad">
+    <h1 class="title">What it costs you to live</h1>
+    <p class="sub">From your last six months. Jeff plans around this first, then works with what's left.</p>
+    ${cardTot ? `<div class="cardbox">Your card bills run about <b>${fmt(r10(cardTot))} a month</b>. That's not one expense. Jeff looked inside: mostly ${cardTop}, plus groceries and gas.</div>` : ""}
+    ${Object.keys(names).map(t => `<div class="group"><h4><span>${names[t]}</span><span class="num">${fmt(sumType(t))}/mo</span></h4>${rows(t)}</div>`).join("")}
+  </div>
+  <div class="footer"><div class="totals"><div><small>You need to live</small><b class="num">${fmt(L)}</b></div><div><small>Left each month for your plan</small><b class="num ${left < 0 ? "neg" : ""}">${fmt(left)}</b></div></div></div>`;
+}
+function paintLiving(){ const sc = $("#screen"); const top = sc.scrollTop; sc.innerHTML = livingHTML(); sc.scrollTop = top; const f = $("#lr" + S.focus); if (f) f.scrollIntoView({block:"center", behavior:"smooth"}); }
+async function living(){
+  const d = p();
+  S.screen = "living"; S.living = d.living.map(c => ({...c, orig:c.amt, status:null})); S.focus = null; S.ti = 0;
+  show(livingHTML(), true); S.handler = livingFree;
+  const L = livingM(), M = takeHomeM();
+  let line = `Next, the most important part. Before I touch anything, I need to know what it actually costs you to live. From your last six months, it's about ${fmt(L)} a month.`;
+  line += L > M ? ` You bring home ${fmt(M)}, so you're spending about ${fmt(L - M)} more than you make. That's why the cards keep growing.` : ` You bring home ${fmt(M)}, which leaves about ${fmt(M - L)} a month to work with.`;
+  if (livingList().some(c => c.trim)) line += " Let's go through the flexible stuff. You can say yes, meet me halfway, or tell me it's off limits.";
+  if (!(await speak(line))) return;
+  nextTrim();
+}
+const trims = () => livingList().filter(c => c.trim);
+async function nextTrim(){
+  const c = trims()[S.ti];
+  if (!c){ S.focus = null; paintLiving(); return confirmLiving(); }
+  S.focus = livingList().indexOf(c); paintLiving();
+  if (!(await speak(c.trim.say))) return;
+  trimChips();
+}
+function trimChips(){
+  setChips([{label:"Okay, trim it", fn:() => applyTrim("trim")},{label:"Meet me halfway", fn:() => applyTrim("half")},{label:"Protect it", fn:() => applyTrim("protect")},{label:"Why?", fn:async () => { if (!(await speak(trims()[S.ti].trim.why))) return; trimChips(); }}]);
+}
+async function applyTrim(kind, reply){
+  const c = trims()[S.ti];
+  if (kind === "protect" && c.trim.harm && !c.pushed){
+    c.pushed = true;
+    const yearly = (c.orig - c.trim.to) * 12;
+    if (!(await speak(reply || `Totally your call, and I'll respect it. Just so you see it: keeping ${c.name.toLowerCase()} at ${fmt(c.orig)} costs you about ${fmt(yearly)} a year, and most of that is going on a card at almost 30 percent. Still want to protect it?`))) return;
+    return setChips([{label:"Fine, trim it", fn:() => applyTrim("trim")},{label:"Meet me halfway", fn:() => applyTrim("half")},{label:"Still protect it", fn:() => applyTrim("protect")}]);
+  }
+  if (kind === "trim"){ c.amt = c.trim.to; c.status = "trimmed"; }
+  if (kind === "half"){ c.amt = r10((c.orig + c.trim.to) / 2); c.status = "halfway"; }
+  if (kind === "protect"){ c.amt = c.orig; c.status = "protected"; }
+  paintLiving();
+  const acks = {trim:`Done. ${c.name} is ${fmt(c.amt)} a month.`, half:`Deal. ${fmt(c.amt)} it is.`, protect:"Protected. It's yours, and I'll plan around it."};
+  if (!(await speak(reply || acks[kind]))) return;
+  S.ti++; nextTrim();
+}
+async function livingFree(text){
+  const c = trims()[S.ti];
+  if (!c){ if (/more|breathing|room|tight|extra/i.test(text)) return breathe(); if (/why|matter/i.test(text)) return whyLiving(); return buildPlan(); }
+  thinking();
+  const r = await llm(`Jeff is going through ${p().first}'s living costs one category at a time. Current category: ${c.name}, ${fmt(c.orig)} a month. Jeff suggested ${fmt(c.trim.to)}. They replied: "${text}". Decide: trim (they accept), half (meet in the middle), protect (keep it as is), or question (answer it in one or two sentences and end by asking what they want to do).${c.trim.harm && !c.pushed ? " If they want to protect it, it's hurting them, so gently push back once with the yearly cost and use decision protect." : ""}`,
+    `{"reply": string, "decision": "trim" | "half" | "protect" | "question"}`);
+  if (r && r.reply && r.decision){
+    if (r.decision === "question"){ if (!(await speak(r.reply))) return; return trimChips(); }
+    return applyTrim(r.decision, c.trim.harm && !c.pushed && r.decision === "protect" ? r.reply : r.reply);
+  }
+  if (/why/i.test(text)) { if (!(await speak(c.trim.why))) return; return trimChips(); }
+  if (/half|middle|meet/i.test(text)) return applyTrim("half");
+  if (/protect|keep|no\b|nah|leave it|don'?t/i.test(text)) return applyTrim("protect");
+  if (/yes|ok|okay|sure|fine|trim|deal|do it/i.test(text)) return applyTrim("trim");
+  if (!(await speak("Fair. So what do you want to do with this one? Trim it, meet halfway, or keep it?"))) return;
+  trimChips();
+}
+async function confirmLiving(){
+  const L = livingM(), left = takeHomeM() - L;
+  const saved = livingList().reduce((s,c) => s + (c.orig - c.amt), 0);
+  if (!(await speak(`So here's your number. You need about ${fmt(L)} a month to live${saved ? `, ${fmt(saved)} less than before` : ""}. That leaves ${fmt(left)} a month for your plan. Does ${fmt(L)} feel like what you actually need, or is it going to be tight?`))) return;
+  setChips([{label:"Feels right", fn:() => buildPlan()},{label:"I need more breathing room", fn:() => breathe()},{label:"Why does this matter?", fn:() => whyLiving()}]);
+}
+async function breathe(){
+  let b = S.living.find(c => c.name === "Breathing room");
+  if (b){ b.amt += 100; b.orig = b.amt; } else S.living.push({name:"Breathing room", amt:150, orig:150, type:"want"});
+  paintLiving();
+  if (!(await speak("Done. I added a breathing room line, money that's just yours with no label. Better to plan honestly than build something you'll break in a month."))) return;
+  confirmLiving();
+}
+async function whyLiving(){
+  if (!(await speak("Because a plan that doesn't leave you enough to live on is a plan you'll quit. I'd rather save a little less every month than have you pull it all back out in March."))) return;
+  setChips([{label:"Feels right", fn:() => buildPlan()},{label:"I need more breathing room", fn:() => breathe()}]);
+}
+async function buildPlan(){
+  if (!(await speak("Perfect. Give me a second. I'm building your plan around that number."))) return;
+  await sleep(600); plan();
+}
+
+/* ---------- Plan ---------- */
+function planHTML(){
+  const ms = S.moves;
+  const prog = ms.map((m,i) => `<i class="${ok(m.id) ? "ok" : (i === S.mi ? "cur" : "")}"></i>`).join("");
+  const agreed = ms.filter(m => ok(m.id)).length;
+  const items = ms.map((m,i) => {
+    const dc = S.dec[m.id];
+    let cls = i === S.mi && !dc ? "current" : "", tag = "";
+    if (dc){
+      cls = dc.status === "skipped" ? "declined" : (dc.status === "adjusted" ? "adjusted" : "approved");
+      tag = dc.status === "skipped" ? "Skipped" : dc.status === "adjusted" ? "Adjusted" : (m.kind === "new" ? "Opening" : m.kind === "check" ? "Jeff is checking" : "Agreed");
+    }
+    const detail = dc && dc.detail ? dc.detail : txt(m.detail);
+    return `<li class="move ${cls}"><b>${m.title}</b><span class="d">${esc(detail)}</span>${dc && dc.rec ? `<span class="rec">${dc.rec}</span>` : ""}${tag ? `<span class="tag">${tag}</span>` : ""}</li>`;
+  }).join("");
+  return `<div class="pad"><h1 class="title">Your plan</h1>
+    <p class="sub">Built on ${fmt(livingM())} a month to live. ${agreed} of ${ms.length} agreed.</p>
+    <div class="progress">${prog}</div><ol class="moves">${items}</ol></div>
+    ${S.mi >= ms.length ? `<div class="footer"><button class="primary" id="seeWorth">See what this plan is worth</button></div>` : ""}`;
+}
+function paintPlan(){
+  const sc = $("#screen"); const top = sc.scrollTop;
+  sc.innerHTML = planHTML(); sc.scrollTop = top;
+  const cur = sc.querySelector(".move.current"); if (cur) cur.scrollIntoView({block:"nearest", behavior:"smooth"});
+  const st = $("#seeWorth"); if (st) st.onclick = () => worth();
+}
+async function plan(){
+  S.screen = "plan"; S.mi = 0; S.dec = {}; S.planning = true;
+  if (!S.living.length) S.living = p().living.map(c => ({...c, orig:c.amt}));
+  S.moves = p().moves.call(p(), S.ans);
+  show("", true); paintPlan(); S.handler = planFree;
+  if (!(await speak("Here's what I'd do, one move at a time. Stop me anytime, ask why, or tell me to change it."))) return;
+  presentMove();
+}
+async function presentMove(){
+  const m = S.moves[S.mi]; paintPlan();
+  if (!m){
+    S.planning = false;
+    if (!(await speak("That's the plan. Before I start running it, let me show you what it's actually worth."))) return;
+    setChips([{label:"Show me", fn:() => worth()}]);
+    return;
+  }
+  if (!(await speak(txt(m.say)))) return;
+  moveChips();
+}
+function moveChips(){
+  const m = S.moves[S.mi]; if (!m) return;
+  if (m.kind === "new") setChips([{label:"Yes, open it", fn:() => decide("approve")},{label:"No thanks", fn:() => decide("decline")},{label:"Why?", fn:() => why()}]);
+  else if (m.kind === "check") setChips([{label:"Yes, check for me", fn:() => decide("approve")},{label:"Not now", fn:() => decide("decline")},{label:"Why?", fn:() => why()}]);
+  else { const c = [{label:"Sounds good", fn:() => decide("approve")},{label:"Why?", fn:() => why()}]; if (m.alt) c.push({label:"Change it", fn:() => change()}); if (m.id !== "safe") c.push({label:"Skip", fn:() => decide("decline")}); setChips(c); }
+}
+async function why(){ const m = S.moves[S.mi]; if (!(await speak(m.why))) return; moveChips(); }
+async function change(){
+  const m = S.moves[S.mi];
+  if (!(await speak(m.alt.say))) return;
+  setChips([{label:"Do that", fn:() => decide("modify", m.alt.detail)},{label:"Keep the original", fn:() => decide("approve")},{label:"Something else", fn:async () => { await speak("Sure. Tell me what you'd rather do."); }}]);
+}
+const OKS = ["Locked in.","Done.","Good. Next.","Love it."];
+async function decide(kind, detail, reply){
+  const m = S.moves[S.mi];
+  if (kind === "approve"){
+    S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : null}; paintPlan();
+    if (!(await speak(reply || (m.kind === "new" ? m.yes : m.kind === "check" ? m.yesLine : OKS[S.mi % OKS.length])))) return;
+  } else if (kind === "decline"){
+    S.dec[m.id] = {status:"skipped"}; paintPlan();
+    if (!(await speak(reply || (m.kind === "new" ? m.no : m.kind === "check" ? m.noLine : "Okay, skipping that one. I'll plan around it.")))) return;
+  } else {
+    S.dec[m.id] = {status:"adjusted", detail}; paintPlan();
+    if (!(await speak(reply || "Updated. Next."))) return;
+  }
+  S.mi++; presentMove();
+}
+const RX = {
+  yes:/\b(yes|yeah|yep|yup|sure|ok|okay|sounds good|do it|let'?s do|go ahead|approve|fine|works|perfect|great|deal)\b/i,
+  no:/\b(no|nah|nope|don'?t|skip|not now|pass|rather not)\b/i,
+  why:/\b(why|how come|explain|what does that mean|what'?s that)\b/i,
+  change:/\b(change|instead|less|more|lower|smaller|bigger|slower|faster|half)\b/i
+};
+async function planFree(text){
+  const m = S.moves[S.mi];
+  if (!m) return worth();
+  thinking();
+  const r = await llm(`You are walking ${p().first} through their plan one change at a time. Current proposed change ${S.mi+1} of ${S.moves.length}: "${m.title}" (${txt(m.detail)}). ${m.kind === "new" ? "This asks whether they're open to opening a new account; if they agree, recommend: " + m.rec + "." : ""} They just said: "${text}". Decide what they mean. approve = they agree; decline = they don't want it; modify = they agree to a changed version (use what they asked for, with realistic numbers from their data); discuss = a question or something unclear, so answer it and end by asking if they want to go ahead.`,
+    `{"reply": string, "decision": "approve" | "decline" | "modify" | "discuss", "new_detail": string or null (only for modify; under 70 characters)}`);
+  if (r && r.reply && r.decision){
+    if (r.decision === "discuss"){ if (!(await speak(r.reply))) return; return moveChips(); }
+    if (r.decision === "modify") return decide("modify", r.new_detail || "Adjusted to your request", r.reply);
+    return decide(r.decision, null, r.reply);
+  }
+  if (RX.why.test(text)) return why();
+  if (RX.no.test(text)) return decide("decline");
+  if (RX.yes.test(text)) return decide("approve");
+  if (RX.change.test(text) && m.alt) return change();
+  if (!(await speak("Fair question. In the full product I'd dig into that with your live data. For now, want to go with this one, or tweak it?"))) return;
+  moveChips();
+}
+
+/* ---------- What the plan is worth ---------- */
+const KIND = {earned:"Interest earned", saved:"Money saved", free:"Free employer money", growth:"Growth", protect:"Protection"};
+function roiChart(years){
+  const max = Math.max(1, years[10]); const x = i => 14 + i * 28; const y = v => 118 - (v / max) * 100;
+  const pts = years.map((v,i) => `${x(i)},${y(v)}`).join(" ");
+  const area = `${x(0)},118 ${pts} ${x(10)},118`;
+  const marks = [1,5,10].map(i => `<circle cx="${x(i)}" cy="${y(years[i])}" r="3.5" fill="var(--jeff2)"/><text x="${x(i)}" y="${y(years[i]) - 9}" font-size="11" text-anchor="${i === 10 ? "end" : "middle"}" font-weight="600">${fmt(r100(years[i]))}</text>`).join("");
+  const ticks = [0,2,4,6,8,10].map(i => `<text x="${x(i)}" y="136" font-size="10.5" text-anchor="middle" class="mt">${i === 0 ? "Now" : "Yr " + i}</text>`).join("");
+  return `<div class="chart"><h5>Running total of what Jeff makes or saves you</h5><svg viewBox="0 0 310 142" role="img" aria-label="Plan value over ten years">
+    <polygon points="${area}" fill="var(--mint)" opacity=".35"/><polyline points="${pts}" fill="none" stroke="var(--jeff2)" stroke-width="2.5"/>${marks}${ticks}</svg></div>`;
+}
+function worthHTML(){
+  const r = roi();
+  const rows = r.rows.map(x => {
+    if (x.state === "skip") return `<li class="skip"><div>${x.m.title}<small>Skipped. Left on the table</small></div><b class="num">${x.lost ? fmt(x.lost) : ""}</b></li>`;
+    if (x.state === "pend") return `<li class="pend"><div>${x.m.title}<small>${x.v.label}</small></div><b class="num">Up to ${fmt(x.pending)}</b></li>`;
+    return `<li><div>${x.m.title}<small>${x.v.amt ? (KIND[x.v.kind] || "") + ". " + x.v.label : x.v.label}</small></div><b class="num">${x.amt ? fmt(x.amt) : "—"}</b></li>`;
+  }).join("");
+  return `<div class="pad">
+    <p class="sub" style="margin:0">Over the next 10 years, this plan is worth about</p>
+    <p class="roibig num">${fmt(r100(r.total))}</p>
+    <p class="sub">And you still live on ${fmt(livingM())} a month. After year one alone, you're ${fmt(r100(r.years[1]))} ahead.</p>
+    ${roiChart(r.years)}
+    <ul class="roirows">${rows}</ul>
+    <p class="fineprint">Estimates use today's rates, 4% on savings and 7% average market returns. Real results will vary. Jeff recalculates every time something changes.</p>
+  </div><div class="footer"><button class="primary" id="startPlan">Start running my plan</button></div>`;
+}
+async function worth(){
+  S.screen = "worth"; S.planning = false; show(worthHTML(), true); $("#startPlan").onclick = () => home();
+  S.handler = async t => { if (/start|go|run|yes|let'?s/i.test(t)) return home(); return homeFree(t, true); };
+  const r = roi(); const best = r.rows.filter(x => x.amt).sort((a,b) => b.amt - a.amt)[0];
+  const skipped = r.rows.filter(x => x.state === "skip" && x.lost).reduce((s,x) => s + x.lost, 0);
+  const pend = r.rows.find(x => x.state === "pend");
+  let line = `Here's the payoff. Over ten years, this plan is worth about ${fmt(r100(r.total))} to you, and you still get to live on ${fmt(livingM())} a month.`;
+  if (best) line += ` The biggest piece is ${best.m.title.toLowerCase().replace(/^get /,"getting ").replace(/^open /,"opening ").replace(/^pay /,"paying ")}, at about ${fmt(best.amt)}.`;
+  if (pend) line += ` And if it checks out, ${pend.m.title.toLowerCase().includes("401") ? "your match" : "the HSA"} could add up to ${fmt(pend.pending)} more.`;
+  if (skipped) line += ` The moves you skipped are worth about ${fmt(skipped)}, so we can revisit those anytime.`;
+  if (!(await speak(line))) return;
+  setChips([{label:"Start running my plan", fn:() => home()},{label:"How did you get that number?", fn:async () => { if (!(await speak("Every move is calculated from your own balances, rates and living costs. Interest you avoid on debt, interest you earn on cash, employer money you weren't collecting, and growth at a conservative seven percent. It updates every time your money does."))) return; setChips([{label:"Start running my plan", fn:() => home()}]); }}]);
+}
+
+/* ---------- Home ---------- */
+const SEG = ["var(--muted)","var(--jeff2)","var(--mint)","var(--gold)","#8FB6D9","#C9A2D8","#E8957F"];
+function splitHTML(split){
+  const tot = split.reduce((s,x) => s + x[1], 0) || 1;
+  return `<div class="split">${split.map((x,i) => `<i style="flex-grow:${x[1]/tot};background:${SEG[i % SEG.length]}"></i>`).join("")}</div>
+    <ul class="legend num">${split.map((x,i) => `<li><i style="background:${SEG[i % SEG.length]}"></i>${esc(x[0])}<span>${fmt(x[1])}</span></li>`).join("")}</ul>`;
+}
+function foundHTML(){
+  if (!S.found.length) return `<li><time>${S.date}</time>Watching your accounts. Nothing to flag yet.<span></span></li>`;
+  return S.found.map(f => `<li class="${f.fresh ? "new" : ""}"><time>${f.date}</time>${esc(f.text)}<span>${f.value ? "+" + fmt(f.value) + (f.per || "") : ""}</span></li>`).join("");
+}
+function goalsHTML(){
+  if (!S.goals.length) return `<li><div class="gt"><span>Nothing yet</span></div><small>Tell Jeff about a trip, a wedding, anything coming up. He'll fit it in.</small></li>`;
+  return S.goals.map(g => `<li><div class="gt"><span>${esc(g.name)}</span><span class="num">${fmt(g.saved)} of ${fmt(g.amount)}</span></div>
+    <div class="bar"><i style="width:${Math.min(100, g.saved / g.amount * 100)}%"></i></div><small>${fmt(g.pp)} a paycheck from ${g.fromLabel}. Ready by ${g.by}</small></li>`).join("");
+}
+function foundHead(){ const t = S.found.reduce((s,f) => s + (f.value || 0), 0); return `Jeff noticed${t ? `<span style="color:var(--jeff2);font-weight:500">, ${fmt(t)} found so far</span>` : ""}`; }
+function homeHTML(){
+  const d = p(); const r = roi();
+  const handling = S.moves.filter(m => ok(m.id)).map(m => `<li>${m.title}<span>${esc(S.dec[m.id].detail || S.dec[m.id].rec || txt(m.detail))}</span></li>`).join("") || `<li>Nothing yet<span>Agree to a move and Jeff starts running it.</span></li>`;
+  const opened = S.moves.filter(m => m.kind === "new" && ok(m.id)).map(m => `<li><time>Oct 1</time>Opened ${m.rec.split(",")[0]}</li>`).join("");
+  return `<div class="pad">
+    <div class="hhead"><span class="hi">Hi, ${d.first}</span><span class="datepill" id="datePill">${S.date}</span></div>
+    <section class="safe"><p class="lbl">Safe to spend</p><p class="big num" id="safe">${fmt(S.safe)}</p><p class="small">until your next paycheck</p></section>
+    <button class="worth" id="worthBtn"><div><b class="num">${fmt(r100(r.total))}</b><span>What your plan is worth over 10 years</span></div><em>See the math</em></button>
+    <section class="hsec"><h3>Coming up</h3><ul class="goals" id="goals">${goalsHTML()}</ul></section>
+    <section class="hsec"><h3 id="foundH">${foundHead()}</h3><ul class="found" id="found">${foundHTML()}</ul></section>
+    <section class="hsec"><h3 id="splitH">Your next ${fmt(payNow())} paycheck, already split</h3><div id="splitBox">${splitHTML(splitNow())}</div></section>
+    <section class="hsec"><h3>Jeff is handling</h3><ul class="handling">${handling}</ul></section>
+    <section class="hsec"><h3>Recent moves</h3><ul class="activity" id="activity">${opened}<li><time>Oct 1</time>Plan started. Jeff is running it.</li></ul></section>
+    <section class="hsec thread" id="thread"></section>
+  </div>`;
+}
+function repaintFound(){ const el = $("#found"); if (el) el.innerHTML = foundHTML(); const h = $("#foundH"); if (h) h.innerHTML = foundHead(); S.found.forEach(f => f.fresh = false); }
+function repaintMoney(){ const g = $("#goals"); if (g) g.innerHTML = goalsHTML(); const s = $("#splitBox"); if (s) s.innerHTML = splitHTML(splitNow()); const h = $("#splitH"); if (h) h.textContent = `Your next ${fmt(payNow())} paycheck, already split`; }
+async function home(silent){
+  S.screen = "home"; S.inCall = false; S.planning = false;
+  const d = p();
+  if (S.safe == null) S.safe = Math.round(spendPP() * 0.55);
+  show(homeHTML(), true);
+  $("#worthBtn").onclick = () => worthFromHome();
+  S.handler = homeFree; clearChips(); $("#you").textContent = "";
+  if (silent){ $("#said").textContent = "I'm running your plan. Tell me about anything coming up, or ask me anything."; return; }
+  if (!(await speak(`You're all set, ${d.first}. I've got it from here. If anything's coming up, a trip, a wedding, anything, just tell me and I'll fit it in.`))) return;
+  homeChips();
+}
+async function worthFromHome(){
+  addThread(`<div class="msg jf">Here's the full breakdown.${roiChart(roi().years)}</div>`);
+  await speak(`Your plan is on track to be worth about ${fmt(r100(roi().total))} over ten years. That number updates every time something changes.`);
+  homeChips();
+}
+const GOAL_DEMO = {maya:"I have a baptism in Florida in three months, the flight's about $400", jordan:"I want to go to Austin City Limits in four months, tickets and travel are about $900", priya:"My sister's wedding is in Italy in six months, I need about $2,500"};
+function homeChips(){
+  const c = [{label:"Plan for something coming up", say:GOAL_DEMO[S.key], fn:() => homeFree(GOAL_DEMO[S.key], false, true)},{label:"Show my spending", fn:() => homeFree("Show my spending")}];
+  if (p().hasCards) c.push({label:"When am I debt free?", fn:() => homeFree("When am I debt free?")});
+  else c.push({label:"Where does my paycheck go?", fn:() => homeFree("Where does my paycheck go?")});
+  setChips(c);
+}
+function addThread(html){ const t = $("#thread"); if (!t) return; t.insertAdjacentHTML("beforeend", html); t.lastElementChild.scrollIntoView({block:"end", behavior:"smooth"}); }
+function addActivity(text){ const a = $("#activity"); if (a) a.insertAdjacentHTML("afterbegin", `<li class="new"><time>${S.date}</time>${esc(text)}</li>`); }
+function addFound(f){ S.found.unshift({...f, date:S.date, fresh:true}); repaintFound(); }
+
+function barChart(rows, title){
+  const max = Math.max(...rows.map(r => r[1])); const h = rows.length * 30 + 4;
+  const bars = rows.map((r,i) => `<text x="0" y="${i*30+17}" font-size="12">${esc(r[0].length > 15 ? r[0].slice(0,14) + "…" : r[0])}</text>
+    <rect x="108" y="${i*30+6}" width="${Math.max(2,(r[1]/max)*146)}" height="16" rx="4" fill="var(--jeff2)"/>
+    <text x="${114+(r[1]/max)*146}" y="${i*30+18}" font-size="12" font-weight="600">${fmt(r[1])}</text>`).join("");
+  return `<div class="chart"><h5>${title}</h5><svg viewBox="0 0 320 ${h}" role="img" aria-label="${esc(title)}">${bars}</svg></div>`;
+}
+function colChart(months, title, line){
+  const max = Math.max(...months.map(m => m[1]), line || 0); const w = 300/months.length;
+  const cols = months.map((m,i) => { const hh = (m[1]/max)*110; const last = i === months.length-1;
+    return `<rect x="${i*w+12}" y="${130-hh}" width="${w-24}" height="${hh}" rx="5" fill="${last ? "var(--flag)" : "var(--jeff2)"}"/>
+    <text x="${i*w+w/2}" y="${124-hh}" font-size="12" text-anchor="middle" font-weight="600">${fmt(m[1])}</text>
+    <text x="${i*w+w/2}" y="148" font-size="12" text-anchor="middle" class="mt">${m[0]}</text>`; }).join("");
+  const ln = line ? `<line x1="4" x2="296" y1="${130-(line/max)*110}" y2="${130-(line/max)*110}" stroke="var(--gold)" stroke-width="2" stroke-dasharray="5 4"/><text x="296" y="${126-(line/max)*110}" font-size="11" text-anchor="end" font-weight="600">Agreed ${fmt(line)}</text>` : "";
+  return `<div class="chart"><h5>${title}</h5><svg viewBox="0 0 300 154" role="img" aria-label="${esc(title)}">${cols}${ln}</svg></div>`;
+}
+function debtChart(){
+  const s = cardSim(); const n = Math.min(120, Math.max(18, (s.free || 30) + 4)); const step = Math.ceil(n / 12);
+  const idx = Array.from({length:Math.ceil(n/step)+1}, (_,i) => Math.min(n-1, i*step));
+  const x = i => 10 + (i / (n-1)) * 280, y = v => 10 + (1 - v/7700) * 110;
+  const line = ser => idx.map(i => `${x(i)},${y(ser[i])}`).join(" ");
+  return `<div class="chart"><h5>Card debt: your plan vs. paying minimums</h5><svg viewBox="0 0 300 150" role="img" aria-label="Card debt payoff chart">
+    <polyline points="${line(BASE.series)}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="4 4"/>
+    <polyline points="${line(s.series)}" fill="none" stroke="var(--jeff2)" stroke-width="3"/>
+    <text x="10" y="142" font-size="11" class="mt">Now</text><text x="290" y="142" font-size="11" text-anchor="end" class="mt">${monthLabel(n-1)}</text>
+    <text x="290" y="${y(BASE.series[n-1])-8}" font-size="11" text-anchor="end" class="mt">Minimums: ${fmt(r100(BASE.series[n-1]))} left</text>
+    <text x="${x(s.free)}" y="${y(0)-8}" font-size="11" text-anchor="middle" font-weight="600">$0 in ${monthLabel(s.free).split(" ")[0]}</text></svg></div>`;
+}
+function chartFor(kind){
+  const d = p();
+  if (kind === "spending") return barChart(livingList().filter(c => c.type !== "fixed").map(c => [c.name, c.amt]), "Your living money, per month");
+  if (kind === "paycheck") return `<div class="chart"><h5>Where each paycheck goes</h5>${splitHTML(splitNow())}</div>`;
+  if (kind === "debt" && d.hasCards) return debtChart();
+  if (kind === "balances") return barChart(d.accounts.filter(a => a.bal > 0).map(a => [a.name, a.bal]), "Account balances");
+  if (kind === "worth") return roiChart(roi().years);
+  if (kind === "creep"){ const c = livingList().find(x => x.name === d.creep.cat); return colChart(d.creep.months, d.creep.cat + ", last 4 months", c ? c.amt : null); }
+  return "";
+}
+const GOAL_RX = /(trip|fly|flight|wedding|baptism|vacation|coming up|save for|saving for|birthday|concert|festival|tickets|christmas|holiday|bachelor|graduation|need about|need \$|buy a|buying a)/i;
+async function homeFree(text, onWorth, forceGoal){
+  const d = p();
+  if (!onWorth) addThread(`<div class="msg me"><span>${esc(text)}</span></div>`);
+  if (S.pendingGoal) return goalFollow(text);
+  thinking();
+  let r = forceGoal ? null : await llm(`${d.first} just said: "${text}". Answer as Jeff. If they're describing something upcoming they need money for (a trip, an event, a purchase), fill "goal" with a short name, the amount if they said one, and how many months away if they said it, and keep reply to a short acknowledgment. Otherwise goal is null. If a chart would help, pick one: "spending", "paycheck", "debt"${d.hasCards ? "" : " (never: no debt)"}, "balances", or "worth". If they ask to change the plan, confirm the change in plain words.`,
+    `{"reply": string, "chart": "spending" | "paycheck" | "debt" | "balances" | "worth" | null, "goal": {"name": string, "amount": number | null, "months": number | null} | null}`);
+  if (forceGoal || (r && r.goal) || (!r && GOAL_RX.test(text))){
+    const g = (r && r.goal) || {};
+    return startGoal({name:g.name || goalName(text), amount:g.amount || parseMoney(text), months:g.months || parseMonths(text), raw:text});
+  }
+  if (!r || !r.reply){
+    let chart = null, reply;
+    if (/spend|spent|habit|categor/i.test(text)){ chart = "spending"; const top = livingList().filter(c => c.type === "want").sort((a,b) => b.amt - a.amt)[0]; reply = `Here's your living money. ${top.name} is your biggest flexible category at ${fmt(top.amt)}, and that's the number we agreed on.`; }
+    else if (/paycheck|split|where.*(money|go)|route/i.test(text)){ chart = "paycheck"; reply = `Every ${fmt(payNow())} paycheck gets split the second it lands. Bills first, your living money protected, the rest to work.`; }
+    else if (/debt|card|loan|owe/i.test(text)){ if (d.hasCards){ chart = "debt"; const s = cardSim(); reply = `On this plan your cards are gone by ${monthLabel(s.free)}. Paying minimums, you'd still owe about ${fmt(r100(BASE.series[s.free]))} then.`; } else reply = "You don't owe anything, which is the point. Let's keep it that way."; }
+    else if (/worth|save|saving|roi|making|value/i.test(text)){ chart = "worth"; reply = `Your plan's on track to be worth about ${fmt(r100(roi().total))} over ten years.`; }
+    else if (/balance|account|net worth|how much/i.test(text)){ chart = "balances"; reply = "Here's everything you've got, as of this morning."; }
+    else if (/change|update|instead|move|increase|decrease/i.test(text)){ reply = "Done. I've updated the plan and I'll route that way from your next paycheck."; }
+    else reply = "Good question. In the live product I'd answer that from your real data. Try telling me about something coming up, or ask about your spending.";
+    r = {reply, chart};
+  }
+  const ch = r.chart ? chartFor(r.chart) : "";
+  if (!onWorth) addThread(`<div class="msg jf">${esc(r.reply)}${ch}</div>`);
+  if (!(await speak(r.reply))) return;
+  if (onWorth) return setChips([{label:"Start running my plan", fn:() => home()}]);
+  homeChips();
+}
+
+/* ---------- Goals: tell Jeff what's coming, he reshapes the plan ---------- */
+function goalName(t){
+  t = t.toLowerCase();
+  if (/baptism/.test(t)) return "Baptism trip";
+  if (/wedding/.test(t)) return "Wedding";
+  if (/festival|concert|tickets|acl|city limits/.test(t)) return "Festival trip";
+  if (/flight|fly|trip|vacation|travel/.test(t)) return "Trip";
+  if (/birthday/.test(t)) return "Birthday";
+  if (/christmas|holiday/.test(t)) return "Holiday gifts";
+  return "Your goal";
+}
+async function startGoal(g){
+  S.pendingGoal = g;
+  if (!g.amount){ if (!(await speak(`Love that. Roughly how much will ${g.name.toLowerCase()} cost you, all in?`))) return; return setChips(["$400","$1,000","$2,500"].map(v => ({label:v, fn:() => goalFollow(v)}))); }
+  if (!g.months){ if (!(await speak("When do you need it by?"))) return; return setChips(["In 1 month","In 3 months","In 6 months"].map(v => ({label:v, fn:() => goalFollow(v)}))); }
+  proposeGoal(g);
+}
+async function goalFollow(text){
+  const g = S.pendingGoal; if (!g) return homeFree(text);
+  if (!g.amount){ const n = parseMoney(text); if (!n){ await speak("Just a ballpark number is fine."); return; } g.amount = n; return startGoal(g); }
+  if (!g.months){ const m = parseMonths(text) || (parseInt(text) || null); if (!m){ await speak("Roughly how many months from now?"); return; } g.months = m; return startGoal(g); }
+}
+function goalImpact(g, from){
+  const pp = g.pp;
+  if (from === "rest" && p().hasCards){
+    const before = cardSim(); const after = cardSim([...S.goals, {...g, from:"rest"}]);
+    const delayM = Math.max(0, after.free - before.free); const extraI = Math.max(1, after.interest - before.interest);
+    return `I'd take ${fmt(pp)} a paycheck from your card payoff for ${g.paychecks} paychecks. Your living money doesn't change. Card-free ${delayM ? `moves about ${delayM} ${delayM === 1 ? "month" : "months"} later` : "stays on schedule"}, and it costs about ${fmt(extraI)} in extra interest.`;
+  }
+  if (from === "rest"){ const rest = S.moves.find(m => m.alloc && m.alloc.rest && ok(m.id)); return `I'd take ${fmt(pp)} a paycheck from your ${rest ? (rest.alloc.label === "Schwab" ? "Schwab money" : rest.alloc.label.toLowerCase()) : "extra savings"} for ${g.paychecks} paychecks. Your living money doesn't change, and everything else stays on track.`; }
+  return `I'd take ${fmt(pp)} a paycheck out of your living money for ${g.paychecks} paychecks. Nothing else in the plan moves.`;
+}
+async function proposeGoal(g){
+  g.paychecks = Math.max(1, Math.floor(g.months * PPM)); g.pp = Math.ceil(g.amount / g.paychecks);
+  g.by = monthLabel(g.months).split(" ")[0] + " " + (new Date(2026, 9 + Math.round(g.months), 1)).getFullYear();
+  const restOk = S.moves.some(m => m.alloc && m.alloc.rest && ok(m.id)) && allocAmt(S.moves.find(m => m.alloc && m.alloc.rest && ok(m.id)).id) >= g.pp;
+  const want = livingList().filter(c => c.type === "want" && !/everything|breathing/i.test(c.name)).sort((a,b) => b.amt - a.amt)[0];
+  const from = restOk ? "rest" : "spend";
+  if (!(await speak(`Got it. ${fmt(g.amount)} for ${g.name.toLowerCase()} by ${g.by}. ${goalImpact(g, from)}${restOk ? ` Or I can take it from your ${want.name.toLowerCase()} money instead. What do you want?` : " What do you think?"}`))) return;
+  const opts = [{label:"Sounds good", fn:() => commitGoal(g, from)}];
+  if (restOk) opts.push({label:`Take it from ${want.name.toLowerCase()}`, fn:() => commitGoal(g, "spend", want)});
+  opts.push({label:"Why that way?", fn:async () => { if (!(await speak(restOk ? "Because it keeps your day-to-day exactly the same. You won't feel this one at all, it just lands a little later on the long-term stuff. But it's your money, so you pick." : "Because there's no spare money elsewhere in the plan right now. Short term, this is the cleanest way to get you there without new debt."))) return; setChips(opts.filter(o => o.label !== "Why that way?")); }});
+  opts.push({label:"Push it a month later", fn:() => { g.months += 1; proposeGoal(g); }});
+  setChips(opts);
+}
+async function commitGoal(g, from, want){
+  S.pendingGoal = null;
+  const goal = {name:g.name, amount:g.amount, months:g.months, pp:g.pp, by:g.by, paychecks:g.paychecks, from, saved:0, fromLabel:from === "rest" ? "your plan's extra" : (want ? want.name.toLowerCase() : "living money")};
+  S.goals.push(goal);
+  repaintMoney(); addActivity(`New goal: ${goal.name}, ${fmt(goal.amount)} by ${goal.by}`);
+  addThread(`<div class="msg jf">Added to your plan: ${esc(goal.name)}, ${fmt(goal.pp)} a paycheck, ready by ${goal.by}.</div>`);
+  if (!(await speak(`Done. ${goal.name} is in the plan. I'll set aside ${fmt(goal.pp)} every paycheck in its own bucket so you don't accidentally spend it, and I'll tell you the day it's ready.`))) return;
+  S.handler = homeFree; homeChips();
+}
+
+/* ================= Jeff on his own ================= */
+async function ensureHome(){
+  if (S.screen === "home") return;
+  const d = p();
+  if (!S.moves.length || S.mi < S.moves.length){
+    if (!Object.keys(S.ans).length){ S.ans.income = "Confirmed"; d.questions.forEach(q => S.ans[q.id] = q.opts[0]); }
+    if (!S.living.length) S.living = d.living.map(c => ({...c, orig:c.amt, amt:c.trim ? c.trim.to : c.amt, status:c.trim ? "trimmed" : null}));
+    S.moves = d.moves.call(d, S.ans); S.dec = {}; S.moves.forEach(m => S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : null}); S.mi = S.moves.length;
+  }
+  await home(true);
+}
+function setDate(dt){ S.date = dt; const el = $("#datePill"); if (el){ el.textContent = dt; el.classList.remove("hl"); void el.offsetWidth; el.classList.add("hl"); } }
+function banner(body){
+  const b = $("#banner");
+  b.innerHTML = `<div class="bt"><b>Jeff</b><span>${S.date}</span></div><p>${esc(body)}</p>`;
+  b.classList.add("show"); b.onclick = () => b.classList.remove("show");
+  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove("show"), 7000);
+}
+function choose(list, context){
+  return new Promise(res => {
+    setChips(list.map(c => ({label:c.label, fn:() => res(c)})));
+    S.handler = async t => {
+      thinking();
+      const r = await llm(`Jeff proactively reached out about this: "${context}". ${p().first} replied: "${t}". Respond as Jeff and resolve it in one reply, acting on what they said.`, `{"reply": string}`);
+      res({label:t, reply:(r && r.reply) || "Got it. I'll handle it that way."});
+    };
+  });
+}
+async function payday(){
+  await ensureHome(); hush();
+  const d = p(); const split = splitNow(); const pay = payNow();
+  banner(`Paycheck landed: ${fmt(pay)}. Already split: ${split.map(x => `${fmt(x[1])} ${x[0].toLowerCase()}`).join(", ")}.`);
+  split.slice().reverse().forEach(x => addActivity(x[0] === "Yours to spend" ? `${fmt(x[1])} left in checking for you` : x[0] === "Bills" ? `${fmt(x[1])} set aside for bills` : `${fmt(x[1])} routed to ${x[0].toLowerCase()}`));
+  addActivity(`Paycheck of ${fmt(pay)} from ${d.payer} landed`);
+  S.goals.forEach(g => g.saved = Math.min(g.amount, g.saved + g.pp)); repaintMoney();
+  const spend = spendPP(); const from = S.safe, to = S.safe + spend, el = $("#safe");
+  for (let i = 1; i <= 20; i++){ await sleep(30); if (el) el.textContent = fmt(from + (to-from)*i/20); }
+  S.safe = to;
+  await speak(`Payday. ${fmt(pay)} just landed and it's already where it needs to be. Bills are covered, and you've got ${fmt(to)} to spend until next time.`);
+}
+async function creep(){
+  await ensureHome(); hush();
+  const c = p().creep;
+  banner(c.text);
+  addThread(`<div class="msg jf">${esc(c.text)}${chartFor("creep")}</div>`);
+  if (!(await speak(c.text + " Want me to set a soft limit so I warn you before you go over, or just keep an eye on it?"))) return;
+  const pick = await choose([{label:"Set a soft limit", reply:`Done. When ${c.cat.toLowerCase()} gets within $50 of the line, I'll ping you before it happens, not after.`, found:`Soft limit set on ${c.cat.toLowerCase()}`},{label:"Raise the budget", reply:`Okay. I'll raise it, and take the difference from your extra money so the plan still balances. Your call, always.`},{label:"Just watch it", reply:"Will do. I'll only bring it up again if it keeps climbing."}], c.text);
+  if (pick.found) addFound({text:pick.found});
+  await speak(pick.reply);
+  S.handler = homeFree; homeChips();
+}
+function pull(){
+  return new Promise(async resolve => {
+    await ensureHome(); hush();
+    const ev = p().pull;
+    addActivity(`${fmt(ev.amt)} withdrawn from ${ev.acct}`);
+    S.callDone = resolve;
+    await sleep(1100);
+    const call = $("#call");
+    call.className = "call show ringing"; $("#cstat").textContent = "calling…";
+    $("#ctext").innerHTML = `<div class="callbtns"><button class="cb no" id="decline">Decline</button><button class="cb yes" id="answer">Answer</button></div>`;
+    $("#decline").onclick = async () => {
+      call.className = "call";
+      banner(`Missed call. ${fmt(ev.amt)} just left your ${ev.acct}. What's going on?`);
+      S.handler = callFree;
+      if (!(await speak(ev.open))) return;
+      reasonChips();
+    };
+    $("#answer").onclick = () => startCall();
+  });
+}
+function reasonChips(){ setChips(p().pull.reasons.map(r => ({label:r.label, fn:() => reason(r)}))); }
+async function reason(r){
+  const ev = p().pull;
+  if (!(await speak(r.reply))) return;
+  if (r.push) setChips([{label:"Fine, put it back", fn:() => endWith(ev.accept, true)},{label:"No, I'm keeping it", fn:() => endWith(ev.refuse)}]);
+  else setChips([{label:"Sounds good", fn:() => endWith("Great. Talk soon.")}]);
+}
+async function endWith(line, saved){
+  if (saved) addFound({text:`Talked you out of pulling ${fmt(p().pull.amt)} from your ${p().pull.acct}`});
+  await speak(line);
+  if (S.inCall) setChips([{label:"End call", fn:() => endCall()}]);
+  else finishCall();
+}
+async function startCall(){
+  const ev = p().pull; const call = $("#call");
+  S.inCall = true; call.className = "call show"; $("#cstat").textContent = "0:01";
+  let sec = 1; clearInterval(call._t); call._t = setInterval(() => { sec++; $("#cstat").textContent = `${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`; }, 1000);
+  $("#ctext").innerHTML = `<p class="said" id="csaid" aria-live="polite"></p><p class="you" id="cyou"></p><div class="chips" id="cchips"></div>
+    <form class="ask" id="cask" autocomplete="off"><button type="button" class="mic" id="cmic" aria-label="Talk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><input id="cin" placeholder="Talk to Jeff" aria-label="Reply to Jeff"><button class="send" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
+    <button class="endcall" id="endcall">End call</button>`;
+  $("#cask").addEventListener("submit", e => { e.preventDefault(); const v = $("#cin").value; $("#cin").value = ""; submit(v); });
+  $("#cmic").onclick = () => listen($("#cmic"), $("#cin"));
+  $("#endcall").onclick = () => endCall();
+  S.handler = callFree;
+  if (!(await speak(ev.open))) return;
+  reasonChips();
+}
+function endCall(){ hush(); const call = $("#call"); clearInterval(call._t); call.className = "call"; S.inCall = false; finishCall(); }
+function finishCall(){
+  S.handler = homeFree; $("#said").textContent = "Anything else?"; homeChips();
+  if (S.callDone){ const r = S.callDone; S.callDone = null; r(); }
+}
+async function callFree(text){
+  const ev = p().pull;
+  thinking();
+  const r = await llm(`Jeff noticed ${fmt(ev.amt)} was just withdrawn from ${p().first}'s ${ev.acct}, which breaks the plan, and reached out. They just said: "${text}". If it's a genuine emergency, be supportive and say how you'll rebuild. If it's a want, push back once, kindly, and propose putting it back with a concrete alternative. If they insist, respect it and say how you'll adjust.`, `{"reply": string, "resolved": boolean}`);
+  if (r && r.reply){
+    if (!(await speak(r.reply))) return;
+    if (r.resolved) return endWith("Talk soon.");
+    return setChips([{label:"Fine, put it back", fn:() => endWith(ev.accept, true)},{label:"No, I'm keeping it", fn:() => endWith(ev.refuse)}]);
+  }
+  const match = ev.reasons.find(x => text.toLowerCase().includes(x.label.toLowerCase().split(" ")[0]));
+  if (match) return reason(match);
+  if (/back/i.test(text) && RX.yes.test(text)) return endWith(ev.accept, true);
+  if (RX.no.test(text)) return endWith(ev.refuse);
+  if (!(await speak("Okay. Is that a must-have, or something that could wait a month?"))) return;
+  setChips([{label:"It's a must-have", fn:() => endWith(ev.refuse)},{label:"It could wait", fn:() => endWith(ev.accept, true)}]);
+}
+async function runEvent(ev){
+  if (ev.if && !ev.if(S.dec, S.ans)) return;
+  setDate(ev.date);
+  if (ev.kind === "payday") return payday();
+  if (ev.kind === "call") return pull();
+  if (ev.kind === "creep") return creep();
+  hush(); banner(ev.text);
+  if (ev.kind === "auto"){ addActivity(ev.found || ev.text); if (ev.found) addFound({text:ev.found, value:ev.value}); await speak(ev.text); return; }
+  if (ev.kind === "win"){ addActivity(ev.act); addFound({text:ev.act}); await speak(ev.text); return; }
+  if (ev.kind === "text"){
+    if (!(await speak(ev.text))) return;
+    const pick = await choose(ev.chips, ev.text);
+    if (pick.found){ addFound({text:pick.found, value:pick.value, per:pick.per}); addActivity(pick.found); }
+    await speak(pick.reply);
+    S.handler = homeFree;
+  }
+}
+let playing = false;
+async function playMonth(){
+  if (playing) return; playing = true;
+  $("#evMonth").disabled = true; $("#evMonth").firstChild.textContent = "Playing the month…";
+  await ensureHome();
+  for (const ev of p().timeline){ if (!playing) break; await runEvent(ev); await sleep(1400); }
+  if (playing){ setDate("Oct 31"); const t = S.found.reduce((s,f) => s + (f.value || 0), 0);
+    await speak(`That's October. ${t ? `On top of your plan, I found ${fmt(t)} this month. ` : ""}Everything's on track, and I'll keep watching.`); homeChips(); }
+  playing = false; $("#evMonth").disabled = false; $("#evMonth").firstChild.textContent = "Play the next 30 days";
+}
+
+/* ================= Controls ================= */
+function resetPersona(){ playing = false; S.dec = {}; S.mi = 0; S.moves = []; S.safe = null; S.history = []; S.ans = {}; S.pay = null; S.side = 0; S.found = []; S.date = "Oct 1"; S.living = []; S.goals = []; S.pendingGoal = null; S.planning = false; $("#call").className = "call"; S.inCall = false; }
+function paintControls(){
+  $("#personas").innerHTML = Object.entries(P).map(([k,v]) => `<button class="pbtn" data-p="${k}" aria-pressed="${k === S.key}"><b>${v.label}</b><span>${v.blurb}</span></button>`).join("");
+  document.querySelectorAll(".pbtn").forEach(b => b.onclick = () => { S.key = b.dataset.p; resetPersona(); paintControls(); welcome(); });
+  const d = p();
+  $("#evPayS").textContent = `${fmt(d.pay)} hits checking and splits itself`;
+  $("#evPullS").textContent = d.pull.label + ". Jeff calls";
+  $("#evCreepS").textContent = `${d.creep.cat} goes over the agreed number. Jeff texts`;
+}
+const jumps = document.querySelector("[data-jump]").parentElement;
+if (!jumps.querySelector('[data-jump="living"]')) jumps.querySelector('[data-jump="plan"]').insertAdjacentHTML("beforebegin", '<button class="sbtn" data-jump="living">Cost of living</button>');
+document.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => {
+  hush(); playing = false; $("#call").className = "call"; S.inCall = false;
+  const j = b.dataset.jump;
+  const quickAns = () => { S.ans.income = "Confirmed"; p().questions.forEach(q => S.ans[q.id] = q.opts[0]); };
+  if (j === "welcome"){ resetPersona(); welcome(); }
+  if (j === "state"){ resetPersona(); state(); }
+  if (j === "living"){ resetPersona(); quickAns(); living(); }
+  if (j === "plan"){ resetPersona(); quickAns(); S.living = p().living.map(c => ({...c, orig:c.amt, amt:c.trim ? c.trim.to : c.amt, status:c.trim ? "trimmed" : null})); plan(); }
+  if (j === "home"){ resetPersona(); ensureHome().then(() => speak(`Hey ${p().first}. Everything's running. Tell me about anything coming up, or ask me anything.`)).then(ok => ok && homeChips()); }
+});
+$("#evMonth").onclick = playMonth;
+$("#evPay").onclick = () => payday().then(homeChips);
+$("#evPull").onclick = () => pull();
+$("#evCreep").onclick = () => creep();
+$("#voiceT").onchange = e => { S.voice = e.target.checked; if (!S.voice) hush(); };
+function toggleClean(){ document.body.classList.toggle("clean"); $("#hideBtn").textContent = document.body.classList.contains("clean") ? "Show controls" : "Hide controls"; }
+$("#hideBtn").onclick = toggleClean;
+document.addEventListener("keydown", e => { if ((e.key === "h" || e.key === "H") && !/input|textarea/i.test(document.activeElement.tagName)) toggleClean(); });
+
+
+
+/* ================= v4: real accounts, explicit consent, where every dollar goes ================= */
+const ID_RULES = [[/checking/i,"chk"],[/^savings$|way2save|online savings/i,"sav"],[/venmo/i,"venmo"],[/quicksilver/i,"co"],[/discover/i,"disc"],[/target/i,"tgt"],[/student/i,"stu"],[/auto loan/i,"autoL"],[/gold/i,"amex"],[/401/,"k401"],[/roth/i,"roth"],[/brokerage/i,"schwab"]];
+const INIT_BUCKETS = {maya:{sav:{Cushion:310}}, jordan:{sav:{"Emergency fund":2100}}, priya:{sav:{"Emergency fund":18500}}};
+const RATES = {hysa:0.041, sav:0.0001};
+function initAccts(){
+  const d = p();
+  S.accts = d.accounts.map(a => { const id = (ID_RULES.find(r => r[0].test(a.name)) || [0, a.name])[1]; return {...a, id, buckets:{...((INIT_BUCKETS[S.key] || {})[id] || {})}}; });
+  if (S.key === "priya") RATES.sav = 0.038; else RATES.sav = 0.0001;
+  S.ledger = {earned:0, avoided:0, free:0, found:0};
+  S.moneyLog = [];
+}
+const acct = id => (S.accts || []).find(a => a.id === id);
+const acctName = a => a ? (a.name.toLowerCase().includes(a.inst.toLowerCase()) ? a.name : `${a.inst} ${a.name}`) : "";
+function savingsAcct(){ return acct("hysa") || acct("sav"); }
+function resolveTo(spec){
+  if (!S.accts) initAccts();
+  if (spec.startsWith("savings:")){ const a = savingsAcct(); const b = spec.slice(8); return {a, bucket:b, label:`${acctName(a)}, ${b} bucket`}; }
+  if (spec === "cards"){ const c = ["tgt","co","disc"].map(acct).filter(c => c && c.bal < -0.5)[0]; return {a:c, cards:true, label:c ? `your cards, ${acctName(c)} first` : "your cards"}; }
+  const a = acct(spec); return {a, label:a ? acctName(a) : spec};
+}
+function transferText(t){
+  const dc = S.dec[S.moves.find(m => m.transfer === t)?.id];
+  const amt = dc && dc.status === "adjusted" && t.alt ? t.alt : t.amt;
+  return `Moves ${fmt(amt)} from ${resolveTo(t.from).label} to ${resolveTo(t.to).label}.`;
+}
+function moveMoney(from, to, amt, note){
+  amt = Math.round(amt * 100) / 100; if (amt <= 0) return;
+  const f = resolveTo(from), t = resolveTo(to);
+  if (f.a){ f.a.bal -= amt; if (f.bucket) f.a.buckets[f.bucket] = Math.max(0, (f.a.buckets[f.bucket] || 0) - amt); }
+  if (t.cards){ let left = amt; for (const id of ["tgt","co","disc"]){ const c = acct(id); if (!c || c.bal >= 0) continue; const pay = Math.min(left, -c.bal); c.bal += pay; left -= pay; if (left <= 0) break; } }
+  else if (t.a){ t.a.bal += amt; if (t.bucket) t.a.buckets[t.bucket] = (t.a.buckets[t.bucket] || 0) + amt; }
+  const line = note || `Moved ${fmt(amt)} from ${f.label} to ${t.label}`;
+  S.moneyLog.unshift({date:S.date, text:line});
+  addActivity(line);
+}
+function applyApproved(m, silent){
+  const dc = S.dec[m.id]; if (!dc || dc.status === "skipped") return;
+  if (m.opens && !acct(m.opens.id)){
+    const o = m.opens; const na = {id:o.id, inst:o.inst, name:o.name, type:o.type || "cash", bal:0, rate:o.rate, buckets:{}};
+    S.accts.push(na);
+    addActivity(`Opened ${acctName(na)}`);
+    if (o.from){ const src = acct(o.from); if (src && src.bal > 0){ const amt = src.bal; na.bal += amt; na.buckets = {...src.buckets}; src.bal = 0; src.buckets = {}; S.moneyLog.unshift({date:S.date, text:`Moved ${fmt(amt)} from ${acctName(src)} to ${acctName(na)}`}); addActivity(`Moved ${fmt(amt)} from ${acctName(src)} to ${acctName(na)}`); } }
+  }
+  if (m.transfer && !dc.moved){ const t = m.transfer; moveMoney(t.from, t.to, dc.status === "adjusted" && t.alt ? t.alt : t.amt); dc.moved = true; }
+}
+
+/* allocations now carry a destination */
+function allocs(opts = {}){
+  let avail = payNow() - billsPP() - spendPP();
+  const out = [];
+  S.moves.forEach(m => {
+    if (!m.alloc || m.alloc.rest || !active(m)) return;
+    const dc = S.dec[m.id]; const want = dc && dc.status === "adjusted" ? m.alloc.alt : m.alloc.want;
+    const amt = Math.max(0, Math.min(want, avail)); out.push({label:m.alloc.label, amt, id:m.id, to:m.alloc.to}); avail -= amt;
+  });
+  if (!opts.noGoals) S.goals.forEach(g => { out.push({label:g.name, amt:g.pp, id:"goal", to:"savings:" + g.name}); if (g.from === "rest") avail -= g.pp; });
+  const rest = S.moves.find(m => m.alloc && m.alloc.rest && active(m));
+  if (rest){
+    const half = S.dec[rest.id] && S.dec[rest.id].status === "adjusted";
+    const amt = Math.max(0, half ? avail / 2 : avail);
+    out.push({label:rest.alloc.label, amt, id:rest.id, to:rest.alloc.to}); avail -= amt;
+  }
+  if (avail > 5) out.push({label:"Extra in checking", amt:avail, id:"left"});
+  return out;
+}
+function routes(){ const chk = acctName(acct("chk")); return allocs().filter(a => a.to && a.amt > 0.5).map(a => ({...a, text:`${fmt(a.amt)} from ${chk} to ${resolveTo(a.to).label}`})); }
+
+/* ---------- Plan: show the pool, the destination, and ask for the okay ---------- */
+function planHTML(){
+  const ms = S.moves;
+  const prog = ms.map((m,i) => `<i class="${ok(m.id) ? "ok" : (i === S.mi ? "cur" : "")}"></i>`).join("");
+  const agreed = ms.filter(m => ok(m.id)).length;
+  const pool = payNow() - billsPP() - spendPP();
+  const items = ms.map((m,i) => {
+    const dc = S.dec[m.id];
+    let cls = i === S.mi && !dc ? "current" : "", tag = "";
+    if (dc){
+      cls = dc.status === "skipped" ? "declined" : (dc.status === "adjusted" ? "adjusted" : "approved");
+      tag = dc.status === "skipped" ? "Skipped" : dc.status === "adjusted" ? "Adjusted" : (m.kind === "new" ? "Opened" : m.kind === "check" ? "Jeff is checking" : m.transfer ? "Moved, with your okay" : "Agreed");
+    }
+    const detail = dc && dc.detail ? dc.detail : txt(m.detail);
+    const where = m.alloc && m.alloc.to && active(m) ? `<span class="rec">Each payday: ${fmt(allocAmt(m.id))} to ${esc(resolveTo(m.alloc.to).label)}</span>` : "";
+    return `<li class="move ${cls}"><b>${m.title}</b><span class="d">${esc(detail)}</span>${dc && dc.rec ? `<span class="rec">${dc.rec}</span>` : ""}${where}${tag ? `<span class="tag">${tag}</span>` : ""}</li>`;
+  }).join("");
+  const done = S.mi >= ms.length;
+  const rts = done ? `<div class="group"><h4><span>Every payday, with your okay</span></h4>${routes().map(r => `<div class="lrow"><div class="nm">${esc(r.label)}<small>${esc(r.text)}</small></div></div>`).join("")}<div class="lrow"><div class="nm">Stays in checking<small>${fmt(billsPP())} for bills and ${fmt(spendPP())} for you to live on</small></div></div></div>` : "";
+  return `<div class="pad"><h1 class="title">Your plan</h1>
+    <p class="sub">You live on ${fmt(livingM())} a month. After that and your bills, Jeff has ${fmt(pool)} a paycheck to work with. ${agreed} of ${ms.length} agreed.</p>
+    <div class="progress">${prog}</div><ol class="moves">${items}</ol>${rts}</div>
+    ${done && S.autoRun != null ? `<div class="footer"><button class="primary" id="seeWorth">See what this plan is worth</button></div>` : ""}`;
+}
+async function presentMove(){
+  const m = S.moves[S.mi]; paintPlan();
+  if (!m){
+    S.planning = false; paintPlan();
+    const rs = routes();
+    if (!(await speak(`That's the plan. One more thing before I touch anything. Every payday, I'd make ${rs.length === 1 ? "this one move" : "these " + rs.length + " moves"}, exactly as listed. Do I have your okay to run them automatically each payday, or do you want me to ask you every time? Anything outside this list, I always ask first.`))) return;
+    setChips([{label:"Yes, run them every payday", fn:() => authorize(true)},{label:"Ask me every payday", fn:() => authorize(false)}]);
+    return;
+  }
+  if (!(await speak(txt(m.say)))) return;
+  moveChips();
+}
+async function authorize(auto){
+  S.autoRun = auto; paintPlan();
+  if (!(await speak(auto ? "Got it. I'll run those routes every payday and nothing else. Anything new, I'll ask you first. Now let me show you what this plan is worth." : "Got it. Every payday I'll show you the moves and wait for your yes. Now let me show you what this plan is worth."))) return;
+  worth();
+}
+async function decide(kind, detail, reply){
+  const m = S.moves[S.mi];
+  if (kind === "approve"){
+    S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : null};
+    applyApproved(m); paintPlan();
+    if (!(await speak(reply || (m.kind === "new" ? m.yes : m.kind === "check" ? m.yesLine : m.transfer ? `Done. ${transferText(m.transfer).replace(/^Moves/, "Moved")}` : OKS[S.mi % OKS.length])))) return;
+  } else if (kind === "decline"){
+    S.dec[m.id] = {status:"skipped"}; paintPlan();
+    if (!(await speak(reply || (m.kind === "new" ? m.no : m.kind === "check" ? m.noLine : "Okay, skipping that one. Nothing moves. I'll plan around it.")))) return;
+  } else {
+    S.dec[m.id] = {status:"adjusted", detail}; applyApproved(m); paintPlan();
+    if (!(await speak(reply || "Updated. Next."))) return;
+  }
+  S.mi++; presentMove();
+}
+const _plan = plan;
+plan = async function(){ if (!S.accts) initAccts(); S.autoRun = null; return _plan(); };
+
+/* ---------- Home: your money, where it is, what Jeff has done ---------- */
+const ledgerTotal = () => S.ledger ? S.ledger.earned + S.ledger.avoided + S.ledger.free + S.ledger.found : 0;
+function moneyHTML(){
+  const cash = S.accts.filter(a => a.type === "cash"), inv = S.accts.filter(a => a.type === "invest"), owed = S.accts.filter(a => a.type === "credit" || a.type === "loan");
+  const sum = l => l.reduce((s,a) => s + a.bal, 0);
+  const row = a => `<div class="acct">${logo(a.inst)}<div class="nm"><b>${acctName(a)}</b><span>${Object.keys(a.buckets || {}).length ? Object.entries(a.buckets).filter(([,v]) => v > 0.5).map(([k,v]) => `${k} ${fmt(v)}`).join(", ") : (a.rate || a.inst)}</span></div><div class="bal num"><span class="${a.bal < 0 ? "neg" : ""}">${fmt(a.bal)}</span></div></div>`;
+  const grp = (t, l) => l.filter(a => Math.abs(a.bal) > 0.5 || a.id === "chk").length ? `<div class="group"><h4><span>${t}</span><span class="num">${fmt(sum(l))}</span></h4>${l.filter(a => Math.abs(a.bal) > 0.5 || a.id === "chk").map(row).join("")}</div>` : "";
+  return `<div class="totals"><div><small>Cash and savings</small><b class="num">${fmt(sum(cash))}</b></div><div><small>${owed.length ? "You owe" : "Invested"}</small><b class="num ${owed.length ? "neg" : ""}">${fmt(owed.length ? -sum(owed) : sum(inv))}</b></div></div>
+    ${grp("Cash and savings", cash)}${grp("Investments", inv)}${grp("Cards and loans", owed)}`;
+}
+function ledgerHTML(){
+  const L = S.ledger || {earned:0,avoided:0,free:0,found:0}; const t = ledgerTotal();
+  const parts = [["interest earned", L.earned],["interest avoided", L.avoided],["employer match", L.free],["found", L.found]].filter(x => x[1] > 0.5).map(x => `${fmt(x[1])} ${x[0]}`).join(", ");
+  return `<button class="worth" id="worthBtn"><div><span>Since Oct 1, Jeff has made and saved you</span><b class="num">${fmt(t)}</b><span>${parts || "Day one. Jeff starts counting today."}</span></div><em>On track for ${fmt(r100(roi().total))}<br>over 10 years</em></button>`;
+}
+function homeHTML(){
+  const d = p();
+  const rts = routes().map(r => `<li>${esc(r.label)}<span>${esc(r.text)}</span></li>`).join("") || `<li>Nothing yet<span>Approve a move and it shows up here.</span></li>`;
+  return `<div class="pad">
+    <div class="hhead"><span class="hi">Hi, ${d.first}</span><span class="datepill" id="datePill">${S.date}</span></div>
+    <section class="safe"><p class="lbl">Safe to spend</p><p class="big num" id="safe">${fmt(S.safe)}</p><p class="small">in ${esc(acctName(acct("chk")))} until your next paycheck, bills already set aside</p></section>
+    <div id="ledgerBox">${ledgerHTML()}</div>
+    <section class="hsec"><h3>Your money, and where it is</h3><div id="moneyBox">${moneyHTML()}</div></section>
+    <section class="hsec"><h3>Coming up</h3><ul class="goals" id="goals">${goalsHTML()}</ul></section>
+    <section class="hsec"><h3 id="foundH">${foundHead()}</h3><ul class="found" id="found">${foundHTML()}</ul></section>
+    <section class="hsec"><h3>Every payday, ${S.autoRun === false ? "after you approve" : "with your okay"}</h3><ul class="handling" id="routesBox">${rts}</ul></section>
+    <section class="hsec"><h3 id="splitH">Your next ${fmt(payNow())} paycheck, already split</h3><div id="splitBox">${splitHTML(splitNow())}</div></section>
+    <section class="hsec"><h3>Recent moves</h3><ul class="activity" id="activity">${(S.moneyLog || []).map(x => `<li><time>${x.date}</time>${esc(x.text)}</li>`).join("")}<li><time>Oct 1</time>Plan started. Nothing moves without your okay.</li></ul></section>
+    <section class="hsec thread" id="thread"></section>
+  </div>`;
+}
+function goalsHTML(){
+  if (!S.goals.length) return `<li><div class="gt"><span>Nothing yet</span></div><small>Tell Jeff about a trip, a wedding, anything coming up. He'll fit it in.</small></li>`;
+  return S.goals.map(g => `<li><div class="gt"><span>${esc(g.name)}</span><span class="num">${fmt(g.saved)} of ${fmt(g.amount)}</span></div>
+    <div class="bar"><i style="width:${Math.min(100, g.saved / g.amount * 100)}%"></i></div><small>${fmt(g.pp)} each payday from ${esc(acctName(acct("chk")))} into ${esc(resolveTo("savings:" + g.name).label)}, out of sight so it doesn't get spent. Ready by ${g.by}.</small></li>`).join("");
+}
+function repaintMoney(){
+  const set = (id, h) => { const el = $(id); if (el) el.innerHTML = h; };
+  set("#goals", goalsHTML()); set("#splitBox", splitHTML(splitNow())); set("#moneyBox", moneyHTML()); set("#ledgerBox", ledgerHTML());
+  set("#routesBox", routes().map(r => `<li>${esc(r.label)}<span>${esc(r.text)}</span></li>`).join(""));
+  const h = $("#splitH"); if (h) h.textContent = `Your next ${fmt(payNow())} paycheck, already split`;
+  const b = $("#worthBtn"); if (b) b.onclick = () => worthFromHome();
+}
+const _home = home;
+home = async function(silent){ if (!S.accts) initAccts(); const r = await _home(silent); const b = $("#worthBtn"); if (b) b.onclick = () => worthFromHome(); return r; };
+function addFound(f){
+  S.found.unshift({...f, date:S.date, fresh:true}); repaintFound();
+  if (f.value && S.ledger){ S.ledger.found += f.per ? f.value / 12 : f.value; repaintMoney(); }
+}
+async function ensureHome(){
+  if (S.screen === "home") return;
+  const d = p();
+  if (!S.accts) initAccts();
+  if (!S.moves.length || S.mi < S.moves.length){
+    if (!Object.keys(S.ans).length){ S.ans.income = "Confirmed"; d.questions.forEach(q => S.ans[q.id] = q.opts[0]); }
+    if (!S.living.length) S.living = d.living.map(c => ({...c, orig:c.amt, amt:c.trim ? c.trim.to : c.amt, status:c.trim ? "trimmed" : null}));
+    S.moves = d.moves.call(d, S.ans); S.dec = {};
+    S.moves.forEach(m => { S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : null}; applyApproved(m); });
+    S.mi = S.moves.length; S.autoRun = true;
+  }
+  await home(true);
+}
+async function commitGoal(g, from, want){
+  S.pendingGoal = null;
+  const goal = {name:g.name, amount:g.amount, months:g.months, pp:g.pp, by:g.by, paychecks:g.paychecks, from, saved:0, fromLabel:from === "rest" ? "your plan's extra" : (want ? want.name.toLowerCase() : "living money")};
+  S.goals.push(goal);
+  const dest = resolveTo("savings:" + goal.name).label;
+  repaintMoney(); addActivity(`New goal: ${goal.name}, ${fmt(goal.amount)} by ${goal.by}`);
+  addThread(`<div class="msg jf">Added to your plan: ${esc(goal.name)}. Each payday, ${fmt(goal.pp)} moves from ${esc(acctName(acct("chk")))} into ${esc(dest)}. Ready by ${goal.by}.</div>`);
+  if (!(await speak(`Done. Every payday, ${fmt(goal.pp)} moves from your checking into ${dest}. It's your own account, just out of sight, so it never shows up as spending money. When it's time to book, tell me and I'll move it back to checking.`))) return;
+  S.handler = homeFree; homeChips();
+}
+async function payday(){
+  await ensureHome(); hush();
+  const d = p(); const pay = payNow(); const rs = routes();
+  const chk = acct("chk"); chk.bal += pay;
+  S.moneyLog.unshift({date:S.date, text:`Paycheck of ${fmt(pay)} from ${d.payer} landed in ${acctName(chk)}`}); addActivity(`Paycheck of ${fmt(pay)} from ${d.payer} landed in ${acctName(chk)}`);
+  if (S.autoRun === false){
+    banner(`Paycheck landed: ${fmt(pay)}. Approve today's planned moves?`);
+    repaintMoney();
+    if (!(await speak(`Payday. ${fmt(pay)} just landed. Want me to make today's planned ${rs.length === 1 ? "move" : "moves"}? ${rs.map(r => r.text).join(". ")}.`))) return;
+    const pick = await choose([{label:"Approve all", go:true, reply:"Done. Everything's where it should be."},{label:"Not this time", go:false, reply:"Okay. Nothing moved. It's all sitting in checking, and I'll check in tomorrow."}], "Payday moves");
+    if (pick.go === false){ await speak(pick.reply); S.handler = homeFree; return; }
+    rs.forEach(r => moveMoney("chk", r.to, r.amt)); accrue(); await speak(pick.reply || "Done."); S.handler = homeFree; return;
+  }
+  banner(`Paycheck landed: ${fmt(pay)}. Your approved moves are done.`);
+  rs.forEach(r => moveMoney("chk", r.to, r.amt));
+  accrue();
+  const spend = spendPP(); const from = S.safe, to = S.safe + spend, el = $("#safe");
+  for (let i = 1; i <= 20; i++){ await sleep(30); if (el) el.textContent = fmt(from + (to-from)*i/20); }
+  S.safe = to;
+  await speak(`Payday. ${fmt(pay)} just landed, and I made the moves you approved, nothing else. Bills are covered, and you've got ${fmt(to)} to spend until next time.`);
+}
+function accrue(){
+  const L = S.ledger;
+  S.accts.forEach(a => { const r = a.id === "hysa" ? RATES.hysa : a.id === "sav" ? RATES.sav : 0; if (r && a.bal > 0) L.earned += a.bal * r / 26; });
+  if (p().hasCards){ const s = cardSim(); L.avoided += Math.max(0, (BASE.yearly[1] - s.yearly[1]) / 26); }
+  const mm = S.moves.find(m => m.id === "match" && m.payCut && ok(m.id)); if (mm) L.free += p().salary * p().matchPct / 100 / 26 * (S.dec.match.status === "adjusted" ? 0.5 : 1);
+  S.goals.forEach(g => g.saved = Math.min(g.amount, g.saved + g.pp));
+  repaintMoney();
+}
+async function runEvent(ev){
+  if (ev.if && !ev.if(S.dec, S.ans)) return;
+  setDate(ev.date);
+  if (ev.kind === "payday") return payday();
+  if (ev.kind === "call") return pull();
+  if (ev.kind === "creep") return creep();
+  hush(); banner(ev.text);
+  if (ev.kind === "auto"){ if (ev.found) addFound({text:ev.found, value:ev.value}); await speak(ev.text); return; }
+  if (ev.kind === "win"){ addActivity(ev.act); addFound({text:ev.act}); await speak(ev.text); return; }
+  if (ev.kind === "text"){
+    if (!(await speak(ev.text))) return;
+    const pick = await choose(ev.chips, ev.text);
+    if (pick.move) moveMoney(pick.move.from, pick.move.to, pick.move.amt);
+    if (pick.found){ addFound({text:pick.found, value:pick.value, per:pick.per}); }
+    repaintMoney();
+    await speak(pick.reply);
+    S.handler = homeFree;
+  }
+}
+const _reset = resetPersona;
+resetPersona = function(){ _reset(); S.accts = null; S.ledger = null; S.moneyLog = []; S.autoRun = null; };
+
+/* ---------- Live AI: Claude viewer, or the app's own /api/jeff when hosted elsewhere (Base44) ---------- */
+let hostAI = null;
+if (!(window.claude && window.claude.use) && typeof fetch === "function") fetch("/api/health").then(r => r.ok ? r.json() : null).then(j => { hostAI = !!(j && j.ai); liveAI = hostAI; paintAI(); }).catch(() => {});
+async function llm(task, schema){
+  const recent = S.history.slice(-8).map(h => `${h.who}: ${h.text}`).join("\n");
+  const prompt = `${STYLE}\n\nPERSON'S DATA\n${profileText()}\n\nRECENT CONVERSATION\n${recent || "(none)"}\n\nTASK\n${task}\n\nReturn only JSON, no code fences, matching: ${schema}`;
+  if (hostAI){
+    try { const r = await fetch("/api/jeff", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({prompt})}); if (!r.ok) return null; const j = await r.json(); return j && Object.keys(j).length ? j : null; } catch(e){ return null; }
+  }
+  const s = await Promise.race([getSampler(), sleep(3500).then(() => null)]);
+  if (!s) return null;
+  try { return await s.json(prompt, {modelTier:"quick", cache:false}); }
+  catch(e){ if (e && e.code === "not_granted"){ liveAI = false; paintAI(); } return null; }
+}
+
+paintControls(); paintAI(); getSampler(); welcome();
+
+</script>
+</body>
+</html>

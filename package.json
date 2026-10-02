@@ -1,0 +1,9 @@
+{
+  "name": "jeff-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive investor demo for Jeff, the AI that runs your money",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
