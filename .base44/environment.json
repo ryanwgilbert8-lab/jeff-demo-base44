@@ -1,0 +1,12 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/api/health",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "description": "Anthropic API key for live AI replies in the Jeff demo. Optional — without it the demo runs in scripted mode with all buttons working. Obtain from https://console.anthropic.com/settings/keys.",
+      "requiredAtBoot": false
+    }
+  ]
+}

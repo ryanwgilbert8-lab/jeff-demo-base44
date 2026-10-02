@@ -1,0 +1,22 @@
+services:
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - JEFF_MODEL=${JEFF_MODEL:-claude-haiku-4-5-20251001}
+    env_file:
+      - /run/base44/app.env
+    command: ["node", "--watch", "server.js"]
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
