@@ -1,0 +1,21 @@
+services:
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+    env_file:
+      - /run/base44/app.env
+    command: ["node", "--watch", "server.js"]
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
