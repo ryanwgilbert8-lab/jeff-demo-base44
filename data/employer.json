@@ -1,0 +1,44 @@
+{
+  "note": "Demo HR/payroll feed. In production this comes from the employer's HRIS or payroll system (Workday, ADP, Gusto, Rippling) with each employee's consent at sign-up.",
+  "employees": {
+    "maya": {
+      "employer": "Brightline Agency",
+      "hrId": "BL-1042",
+      "salary": 68000,
+      "payFrequency": "biweekly on Fridays",
+      "pay": 2050,
+      "benefits": {
+        "retirement": { "plan": "401(k)", "match": "4% of salary, vested immediately", "matchPct": 4, "enrolled": false },
+        "health": { "plan": "PPO", "hsaEligible": false },
+        "pto": "15 days PTO",
+        "lifeInsurance": "1x salary, employer paid"
+      }
+    },
+    "jordan": {
+      "employer": "Northwind Health",
+      "hrId": "NW-2387",
+      "salary": 72000,
+      "payFrequency": "biweekly on Fridays",
+      "pay": 2060,
+      "benefits": {
+        "retirement": { "plan": "401(k)", "match": "5% of salary, vested immediately", "matchPct": 5, "enrolled": false },
+        "health": { "plan": "PPO", "hsaEligible": false },
+        "pto": "18 days PTO",
+        "perks": ["Student-loan repayment assistance eligible"]
+      }
+    },
+    "priya": {
+      "employer": "Halcyon Advisory",
+      "hrId": "HA-0519",
+      "salary": 95000,
+      "payFrequency": "biweekly on Fridays",
+      "pay": 2600,
+      "benefits": {
+        "retirement": { "plan": "401(k)", "match": "6% of salary, currently contributing 6%", "matchPct": 6, "enrolled": true },
+        "health": { "plan": "High-deductible health plan", "hsaEligible": true },
+        "pto": "20 days PTO",
+        "perks": ["Annual professional-development stipend"]
+      }
+    }
+  }
+}

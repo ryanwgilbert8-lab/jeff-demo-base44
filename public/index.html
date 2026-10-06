@@ -50,6 +50,11 @@ button{font:inherit; color:inherit; cursor:pointer}
 .status{font-size:12px; color:var(--muted)}
 .status i{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--muted); margin-right:6px; vertical-align:1px}
 .status.on i{background:#2FB27A}
+.hrfeed .hrrow{display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:5px 0; border-bottom:1px dashed var(--line)}
+.hrfeed .hrrow span{color:var(--muted)}
+.hrfeed .hrrow b{font-weight:600; text-align:right}
+.hrfeed .hrnote{font-size:11px; color:var(--muted); margin:8px 0 0}
+.pbtn .via{display:block; font-size:11px; margin-top:2px}
 .hidebtn{position:fixed; right:14px; bottom:14px; z-index:50; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:12px; color:var(--muted)}
 body.clean .controls{display:none}
 
@@ -298,10 +303,14 @@ body.clean .controls{display:none}
 
   <aside class="controls" id="controls">
     <h2>Demo controls</h2>
-    <p class="lede">Pick a person, hand over the phone, then let a month play out while Jeff runs things.</p>
+    <p class="lede">Sign in as an employee. Their salary, pay schedule and benefits come straight from their employer's HR system — Jeff already knows them.</p>
     <div class="cgroup">
-      <h3>Who's using Jeff</h3>
+      <h3>Signed-in employee</h3>
       <div id="personas"></div>
+    </div>
+    <div class="cgroup">
+      <h3>Employer data (HR feed)</h3>
+      <div class="hrfeed" id="hrfeed"><p class="status"><i></i>Loading employer HR feed…</p></div>
     </div>
     <div class="cgroup">
       <h3>Jump to</h3>
@@ -880,7 +889,7 @@ function welcome(){
       <p class="tag">Your money, run for you. Connect your accounts, talk it through, and Jeff handles the rest.</p>
       <div class="bigwave" aria-hidden="true">${bars}</div></div>
     <div class="bottom"><button class="primary" id="go">Connect my accounts</button>
-      <p class="fine">Demo with sample data. No real accounts are touched.</p></div></div>`);
+      <p class="fine">Included with your ${esc(p().payer)} benefits. Demo with sample data. No real accounts are touched.</p></div></div>`);
   $("#go").onclick = () => { if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); connect(); };
 }
 
@@ -918,7 +927,7 @@ function acctRow(a){
 function incomeHTML(){
   const d = p(); const pay = S.pay || d.pay; const conf = S.ans.income;
   return `<div class="group" id="incomeG"><h4><span>Income</span><span class="num">${fmt(pay*PPM)}/mo</span></h4>
-    <div class="incomerow"><div class="nm"><b>${d.payer} paycheck</b><span>Every other Friday into checking${conf ? "" : ", needs your confirmation"}</span></div><div class="bal num">${fmt(pay)}</div></div>
+    <div class="incomerow"><div class="nm"><b>${d.payer} paycheck</b><span>Every other Friday into checking${conf ? " · confirmed" : " · from your employer's payroll feed"}</span></div><div class="bal num">${fmt(pay)}</div></div>
     ${S.side ? `<div class="incomerow"><div class="nm"><b>Other income</b><span>You told Jeff about this</span></div><div class="bal num">${fmt(S.side)}/mo</div></div>` : ""}</div>`;
 }
 function groups(){
@@ -944,7 +953,7 @@ async function askIncome(){
   const d = p();
   $("#incomeG").classList.remove("hl"); void $("#incomeG").offsetWidth; $("#incomeG").classList.add("hl");
   S.pending = "income";
-  if (!(await speak(`First, your income. I see ${fmt(d.pay)} landing from ${d.payer} every other Friday. That's about ${fmt(d.pay*PPM)} a month take-home. Is that right?`))) return;
+  if (!(await speak(`First, your income. This one comes straight from ${d.payer}'s payroll feed, so I don't need you to type it. I see ${fmt(d.pay)} landing every other Friday. That's about ${fmt(d.pay*PPM)} a month take-home. Is that right?`))) return;
   setChips([{label:"Yes, that's right", fn:() => incomeYes()},{label:"It's different", fn:() => incomeDiff()},{label:"I have other income too", fn:() => incomeSide()}]);
 }
 async function incomeYes(){ S.ans.income = "Confirmed"; S.pending = null; repaintIncome(); if (!(await speak("Perfect. That's the number I'll plan around."))) return; S.q = 0; askQ(); }
@@ -988,9 +997,24 @@ async function freeQ(text){
   if (!pick){ if (!(await speak("Got it. Just so I get the plan right, which of these is closest?"))) return; return setChips(q.opts.map(o => ({label:o, fn:() => answerQ(o)}))); }
   answerQ(pick);
 }
+function hrKnown(qid){
+  const hr = HR[S.key]; if (!hr || !hr.benefits) return null;
+  if (qid === "match") return hr.benefits.retirement && hr.benefits.retirement.matchPct ? `Yes, ${hr.benefits.retirement.matchPct}%` : "No match";
+  if (qid === "hdhp") return hr.benefits.health && hr.benefits.health.hsaEligible ? "Yes" : "No, it's a PPO";
+  return null;
+}
 async function askQ(){
   const d = p(); const q = d.questions[S.q];
   if (!q) return living();
+  const known = hrKnown(q.id);
+  if (known){
+    S.ans[q.id] = known; S.q++;
+    const line = q.id === "match"
+      ? `Next was going to be your 401(k), but I already have this one from ${d.payer}'s HR system. They match ${d.matchPct} percent and you're not contributing yet, so I've noted it and it's already part of the plan.`
+      : `I can answer this one myself. ${d.payer}'s benefits file says you're on the high-deductible health plan. I'll use that when we talk about an HSA.`;
+    if (!(await speak(line))) return;
+    return askQ();
+  }
   if (q.hl){ const el = document.querySelector(`[data-acct="${q.hl}"]`); if (el){ el.classList.remove("hl"); void el.offsetWidth; el.classList.add("hl"); el.scrollIntoView({block:"center", behavior:"smooth"}); } }
   if (!(await speak(q.q))) return;
   setChips(q.opts.map(o => ({label:o, fn:() => answerQ(o)})));
@@ -1574,10 +1598,23 @@ async function playMonth(){
 
 /* ================= Controls ================= */
 function resetPersona(){ playing = false; S.dec = {}; S.mi = 0; S.moves = []; S.safe = null; S.history = []; S.ans = {}; S.pay = null; S.side = 0; S.found = []; S.date = "Oct 1"; S.living = []; S.goals = []; S.pendingGoal = null; S.planning = false; $("#call").className = "call"; S.inCall = false; }
+const HR = {};
 function paintControls(){
-  $("#personas").innerHTML = Object.entries(P).map(([k,v]) => `<button class="pbtn" data-p="${k}" aria-pressed="${k === S.key}"><b>${v.label}</b><span>${v.blurb}</span></button>`).join("");
+  $("#personas").innerHTML = Object.entries(P).map(([k,v]) => `<button class="pbtn" data-p="${k}" aria-pressed="${k === S.key}"><b>${v.label}</b><span>${v.blurb}</span><span class="via">Enrolled via ${esc((HR[k] && HR[k].employer) || v.payer)}</span></button>`).join("");
   document.querySelectorAll(".pbtn").forEach(b => b.onclick = () => { S.key = b.dataset.p; resetPersona(); paintControls(); welcome(); });
   const d = p();
+  const hr = HR[S.key];
+  $("#hrfeed").innerHTML = hr ? `
+    <div class="hrrow"><span>Employer</span><b>${esc(hr.employer)}</b></div>
+    <div class="hrrow"><span>HR record</span><b>${esc(hr.hrId)}</b></div>
+    <div class="hrrow"><span>Salary</span><b class="num">${fmt(hr.salary)}/yr</b></div>
+    <div class="hrrow"><span>Pay</span><b class="num">${fmt(hr.pay)} · ${esc(hr.payFrequency)}</b></div>
+    <div class="hrrow"><span>401(k)</span><b>${esc(hr.benefits.retirement.match)}</b></div>
+    <div class="hrrow"><span>Health plan</span><b>${esc(hr.benefits.health.plan)}${hr.benefits.health.hsaEligible ? " · HSA eligible" : ""}</b></div>
+    <div class="hrrow"><span>PTO</span><b>${esc(hr.benefits.pto)}</b></div>
+    ${hr.benefits.perks && hr.benefits.perks.length ? `<div class="hrrow"><span>Perks</span><b>${hr.benefits.perks.map(esc).join(", ")}</b></div>` : ""}
+    <p class="hrnote">Jeff reads this at sign-in, so nobody re-types their salary or benefits.</p>`
+    : `<p class="status"><i></i>Loading employer HR feed…</p>`;
   $("#evPayS").textContent = `${fmt(d.pay)} hits checking and splits itself`;
   $("#evPullS").textContent = d.pull.label + ". Jeff calls";
   $("#evCreepS").textContent = `${d.creep.cat} goes over the agreed number. Jeff texts`;
@@ -1870,6 +1907,7 @@ async function llm(task, schema){
 }
 
 paintControls(); paintAI(); getSampler(); welcome();
+if (typeof fetch === "function") fetch("/api/employer").then(r => r.ok ? r.json() : null).then(j => { if (j && j.employees){ Object.assign(HR, j.employees); paintControls(); } }).catch(() => {});
 
 </script>
 </body>

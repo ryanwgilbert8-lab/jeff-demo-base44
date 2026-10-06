@@ -7,7 +7,7 @@ const path = require("path");
 const PORT = process.env.PORT || 3000;
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.JEFF_MODEL || "claude-haiku-4-5-20251001";
-const html = fs.readFileSync(path.join(__dirname, "public", "index.html"));
+const HTML_PATH = path.join(__dirname, "public", "index.html");
 
 function send(res, code, type, body) {
   res.writeHead(code, { "Content-Type": type });
@@ -17,6 +17,9 @@ function send(res, code, type, body) {
 http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/api/health") {
     return send(res, 200, "application/json", JSON.stringify({ ai: !!KEY }));
+  }
+  if (req.method === "GET" && req.url === "/api/employer") {
+    return send(res, 200, "application/json", fs.readFileSync(path.join(__dirname, "data", "employer.json")));
   }
   if (req.method === "POST" && req.url === "/api/jeff") {
     if (!KEY) return send(res, 503, "application/json", "{}");
@@ -38,5 +41,5 @@ http.createServer(async (req, res) => {
       return send(res, 500, "application/json", "{}");
     }
   }
-  send(res, 200, "text/html; charset=utf-8", html);
+  send(res, 200, "text/html; charset=utf-8", fs.readFileSync(HTML_PATH));
 }).listen(PORT, "0.0.0.0", () => console.log(`Jeff demo running on port ${PORT}`));

@@ -15,6 +15,10 @@ Single-page Node.js demo: `server.js` serves `public/index.html` and proxies AI 
 ## Health
 - `GET /api/health` → `{"ai": true|false}` indicates whether the API key is present.
 
+## B2B2C employer data
+- `GET /api/employer` serves `data/employer.json` — the demo HR/payroll feed keyed by employee id (`maya`, `jordan`, `priya`). The page loads it at startup into `HR` and renders it in the "Employer data (HR feed)" controls group.
+- Employer-known questions (`match`, `hdhp`) are auto-answered in `askQ` via `hrKnown()`; personal questions (rent, home goals) are still asked. `matchPct`/`hsaEligible` strings must match what `matchMove()` and Priya's HSA move expect (`"Yes, N%"`, `"Yes"`).
+
 ## Notes
 - All data is fake. No real accounts, no money movement.
 - `JEFF_MODEL` env var controls which Anthropic model is used (defaults to `claude-haiku-4-5-20251001`).
