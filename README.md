@@ -40,10 +40,16 @@ until an admin UI exists). Employee records are upserted by `(employer, hrId)`.
 `data/employer.json` is the seed feed used by `lib/migrate.js` at boot.
 
 ## Financial brain
-`POST /api/jeff` (session required): the client sends its task prompt; the server injects
-the signed-in user's authoritative HR data from Postgres, calls Claude
-(`ANTHROPIC_API_KEY`, model via `JEFF_MODEL`), persists both sides of the exchange, and
-returns the JSON the client flow expects. Without a key the app runs in scripted mode.
+- **Chat** — `POST /api/jeff` (session required): the client sends its task prompt; the
+  server injects the signed-in user's authoritative HR data from Postgres, calls Claude
+  (`ANTHROPIC_API_KEY`, model via `JEFF_MODEL`), persists both sides of the exchange, and
+  returns the JSON the client flow expects.
+- **Custom plans** — `POST /api/plan` (session required): the client sends the candidate
+  move list plus the money numbers confirmed in conversation; Claude decides which moves
+  fit this person, rewrites each move's say/why/detail with their real numbers, and may add
+  up to 2 custom advice moves. The server sanitizes the response (only known move ids,
+  the machinery-critical `safe` move can never be dropped) and stores the plan in the
+  `plans` table. Without a key, or on failure, the client falls back to its scripted plan.
 
 ## Secrets
 - `ANTHROPIC_API_KEY` — Anthropic key for the brain (https://console.anthropic.com/settings/keys).

@@ -1188,12 +1188,45 @@ function paintPlan(){
   const cur = sc.querySelector(".move.current"); if (cur) cur.scrollIntoView({block:"nearest", behavior:"smooth"});
   const st = $("#seeWorth"); if (st) st.onclick = () => worth();
 }
+/* Custom plan: the server brain personalizes the move list from the user's real HR data */
+async function aiPlan(){
+  try {
+    const r = await fetch("/api/plan", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+      persona: S.key,
+      answers: S.ans,
+      living: livingList().map(c => ({name:c.name, amt:Math.round(c.amt), type:c.type})),
+      pay: payNow(), takeHomeM: takeHomeM(), livingM: livingM(),
+      billsM: monthly(billsPP()), spendM: monthly(spendPP()), poolM: monthly(payNow() - billsPP() - spendPP()),
+      moves: S.moves.map(m => ({id:m.id, kind:m.kind, title:m.title, detail:txt(m.detail)}))
+    }) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && Array.isArray(j.moves) ? j : null;
+  } catch(e){ return null; }
+}
 async function plan(){
   S.screen = "plan"; S.mi = 0; S.dec = {}; S.planning = true;
   if (!S.living.length) S.living = p().living.map(c => ({...c, orig:c.amt}));
   S.moves = p().moves.call(p(), S.ans);
+  let intro = "Here's what I'd do, one move at a time. Stop me anytime, ask why, or tell me to change it.";
+  if (hostAI && USER && !S.aiPlan){ thinking(); S.aiPlan = await aiPlan(); }
+  const A = S.aiPlan;
+  if (A && A.moves.length){
+    const byId = {}; A.moves.forEach(x => { if (x && x.id) byId[x.id] = x; });
+    S.moves = S.moves.filter(m => !byId[m.id] || byId[m.id].keep !== false);
+    S.moves.forEach(m => {
+      const c = byId[m.id]; if (!c) return;
+      if (c.say) m.say = c.say; if (c.why) m.why = c.why; if (c.detail) m.detail = c.detail;
+    });
+    (A.extra || []).forEach((x, i) => {
+      const at = S.moves.findIndex(m => m.id === (x.insertBefore || "safe"));
+      S.moves.splice(at >= 0 ? at : S.moves.length - 1, 0,
+        {id:"x_" + i, kind:"move", title:x.title, detail:x.detail || "", say:x.say, why:x.why || "Because it fits your plan.", custom:true});
+    });
+    if (A.intro) intro = A.intro;
+  }
   show("", true); paintPlan(); S.handler = planFree;
-  if (!(await speak("Here's what I'd do, one move at a time. Stop me anytime, ask why, or tell me to change it."))) return;
+  if (!(await speak(intro))) return;
   presentMove();
 }
 async function presentMove(){
@@ -1633,7 +1666,7 @@ async function playMonth(){
 }
 
 /* ================= Controls ================= */
-function resetPersona(){ playing = false; S.dec = {}; S.mi = 0; S.moves = []; S.safe = null; S.history = []; S.ans = {}; S.pay = null; S.side = 0; S.found = []; S.date = "Oct 1"; S.living = []; S.goals = []; S.pendingGoal = null; S.planning = false; $("#call").className = "call"; S.inCall = false; }
+function resetPersona(){ playing = false; S.dec = {}; S.mi = 0; S.moves = []; S.safe = null; S.history = []; S.ans = {}; S.pay = null; S.side = 0; S.found = []; S.date = "Oct 1"; S.living = []; S.goals = []; S.pendingGoal = null; S.planning = false; S.aiPlan = null; $("#call").className = "call"; S.inCall = false; }
 const HR = {};
 function paintControls(){
   // Production: each signed-in user sees only their own persona (their own HR-backed profile).

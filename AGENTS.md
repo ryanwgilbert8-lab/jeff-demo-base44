@@ -46,6 +46,16 @@ with HR data injected from Postgres). Client is a single static page with no bui
 - `GET /api/me` returns `{ user, persona, hr }`; `persona` maps to the scripted demo flow
   (`P` object in `index.html`), `hr` is the raw HRIS record shown in the controls panel.
 
+## Custom plan building
+- `POST /api/plan` (auth): client posts candidate moves + confirmed money numbers; Claude
+  personalizes (keep/drop/rewrite say/why/detail, up to 2 custom advice moves). Server
+  sanitizes: ids must match candidates, `safe` can't be dropped, extras capped at 2; result
+  stored in `plans`. Client caches it in `S.aiPlan` (cleared by `resetPersona`) and merges
+  it in `plan()` — machinery (allocs, ROI, payday sim) is untouched: extras carry no
+  alloc/transfer/value, so they render and can be approved but don't move money.
+- The client's first plan move may be a brain-authored custom move (e.g. net-pay rhythm);
+  that's expected, not a bug.
+
 ## Verify it works
 1. `curl -s localhost:3000/api/health` → `{"ai":true,"db":true}` (ai depends on the key).
 2. Login: `curl -s -c /tmp/cj -X POST localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{"email":"maya@jeff.demo","password":"jeff-demo-2026"}'`.

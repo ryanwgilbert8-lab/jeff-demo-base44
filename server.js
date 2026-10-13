@@ -111,7 +111,57 @@ async function handleMe(req, res, user) {
   });
 }
 
-/* ---------- Financial brain ---------- */
+/* ---------- Financial brain: custom plan builder ---------- */
+// The platform can execute a fixed set of move types (open account, transfer, check,
+// allocation). The brain personalizes: which moves fit this person, in what words, and
+// up to two custom advice moves. The machinery (allocations, ROI, simulation) is unchanged.
+const PLAN_STYLE = STYLE + `
+
+You are now DESIGNING this person's plan, not chatting. You get their authoritative HR record, their confirmed answers from the conversation, their agreed money numbers, and the candidate plan moves the platform can execute. Personalize the plan: keep the machinery, make every word and every choice fit this exact person. Ground every line in their real numbers. Never invent accounts, employers, rates, or numbers that are not in the data. Say lines are spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500".`;
+
+async function handlePlan(req, res, user) {
+  if (!ai.enabled()) return json(res, 503, {});
+  let body;
+  try { body = await readBody(req, 2e6); } catch { return json(res, 400, {}); }
+  const moves = Array.isArray(body.moves) ? body.moves.filter(m => m && m.id) .slice(0, 20) : [];
+  if (!moves.length) return json(res, 400, {});
+  const n = v => (isFinite(v) ? Math.round(v) : 0);
+  const prompt = `PERSON'S HR RECORD (authoritative)
+${user.hr_data ? JSON.stringify(user.hr_data, null, 1) : "(none — rely on their confirmed answers)"}
+
+CONFIRMED ANSWERS
+${JSON.stringify(body.answers || {}, null, 1)}
+
+MONEY CONFIRMED IN CONVERSATION
+Take-home: $${n(body.takeHomeM)}/mo · pay $${n(body.pay)} per paycheck
+Agreed monthly living: $${n(body.livingM)} (bills $${n(body.billsM)}, spending $${n(body.spendM)})
+Pool available each paycheck for the plan: $${n(body.poolM)}
+
+CANDIDATE MOVES
+${JSON.stringify(moves.map(m => ({ id: m.id, kind: m.kind, title: m.title, detail: m.detail })), null, 1)}
+
+TASK
+Build this person's plan. For each candidate move: decide keep (true/false — drop moves that don't fit their situation) and rewrite say, why and detail personalized to their real numbers, answers and employer data. You may add up to 2 extra custom moves (advice only — no opening accounts, no transfers) with insertBefore set to a candidate id ("safe" puts it near the end). NEVER drop the move with id "safe". Order stays as listed. Return only JSON, no code fences:
+{"intro": string, "moves": [{"id": string, "keep": boolean, "say": string, "why": string, "detail": string}], "extra": [{"title": string, "detail": string, "say": string, "why": string, "insertBefore": string}]}`;
+  const text = await ai.complete({ system: PLAN_STYLE, prompt, maxTokens: 1600 });
+  if (!text) return json(res, 502, {});
+  const match = text.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
+  if (!match) return json(res, 502, {});
+  let plan;
+  try { plan = JSON.parse(match[0]); } catch { return json(res, 502, {}); }
+  // Sanitize against the client's actual machinery: only known ids, and "safe" is never dropped.
+  const ids = new Set(moves.map(m => m.id));
+  plan.moves = (Array.isArray(plan.moves) ? plan.moves : []).filter(m => m && ids.has(m.id));
+  if (moves.some(m => m.id === "safe")) {
+    const safe = plan.moves.find(m => m.id === "safe");
+    if (safe) safe.keep = true; else plan.moves.push({ id: "safe", keep: true });
+  }
+  plan.extra = (Array.isArray(plan.extra) ? plan.extra : []).filter(x => x && x.title && x.say).slice(0, 2);
+  await pool.query("INSERT INTO plans(user_id, data) VALUES ($1, $2)", [user.id, JSON.stringify(plan)]);
+  return json(res, 200, plan);
+}
+
+/* ---------- Financial brain: chat ---------- */
 // Server-authoritative: the employer's HR data is injected from Postgres here (the client
 // cannot fabricate it), and every exchange is persisted for the signed-in user.
 async function handleJeff(req, res, user) {
@@ -154,7 +204,8 @@ const ROUTES = [
   ["POST", /^\/api\/auth\/logout$/, handleLogout, false],
   ["GET", /^\/api\/me$/, handleMe, true],
   ["POST", /^\/api\/hris\/feed$/, handleFeed, false],
-  ["POST", /^\/api\/jeff$/, handleJeff, true]
+  ["POST", /^\/api\/jeff$/, handleJeff, true],
+  ["POST", /^\/api\/plan$/, handlePlan, true]
 ];
 
 http.createServer(async (req, res) => {
