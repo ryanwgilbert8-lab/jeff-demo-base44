@@ -25,6 +25,24 @@ button{font:inherit; color:inherit; cursor:pointer}
 :focus-visible{outline:2px solid var(--mint); outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
 
+/* auth gate */
+.auth{position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:var(--paper); padding:20px}
+.auth[hidden]{display:none}
+.auth .card{width:min(380px,100%); background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px; box-shadow:0 30px 60px -30px rgba(13,58,43,.4)}
+.auth h1{font-family:"Bricolage Grotesque",system-ui,sans-serif; font-size:24px; font-weight:700; margin:0 0 4px}
+.auth .sub{color:var(--muted); margin:0 0 10px; font-size:14px}
+.auth label{display:block; font-size:13px; font-weight:600; margin:12px 0 4px}
+.auth input{width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--ink); font:inherit}
+.auth .aerr{color:var(--flag); font-size:13px; min-height:18px; margin:8px 0 0}
+.auth .actions{display:flex; gap:10px; margin-top:14px}
+.auth .abtn{flex:1; padding:11px; border-radius:10px; border:1px solid var(--line); background:var(--paper); font-weight:500}
+.auth .abtn.ap{background:var(--jeff); color:var(--onjeff); border-color:var(--jeff); font-weight:600}
+.auth .abtn:disabled{opacity:.6; cursor:default}
+.auth .aswap{margin-top:14px; font-size:13px; color:var(--muted)}
+.auth .aswap button{border:none; background:none; color:var(--jeff); text-decoration:underline; padding:0; font:inherit; cursor:pointer}
+.auth .ademo{margin-top:16px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px}
+#personas .chip{margin-top:8px; color:var(--ink); border:1px solid var(--line); background:var(--surface); padding:8px 12px; border-radius:999px; font-size:13px}
+
 /* stage */
 .stage{display:flex; gap:40px; justify-content:center; align-items:flex-start; padding:28px 20px 40px; min-height:100%}
 .phone{position:relative; width:390px; max-width:100%; height:min(844px, calc(100vh - 56px)); min-height:640px; background:var(--surface); border:10px solid var(--frame); border-radius:48px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 40px 80px -40px rgba(13,58,43,.55)}
@@ -267,6 +285,24 @@ body.clean .controls{display:none}
 </style>
 </head>
 <body>
+<div class="auth" id="auth" hidden>
+  <div class="card">
+    <h1 id="authTitle">Sign in to Jeff</h1>
+    <p class="sub">Your salary and benefits come from your employer's HR feed — no re-typing.</p>
+    <form id="authForm" autocomplete="on">
+      <label for="authEmail">Work email</label>
+      <input id="authEmail" type="email" required>
+      <label for="authPass">Password</label>
+      <input id="authPass" type="password" required minlength="8">
+      <p class="aerr" id="authErr"></p>
+      <div class="actions">
+        <button type="button" class="abtn" id="authSwap">Create account</button>
+        <button type="submit" class="abtn ap" id="authGo">Sign in</button>
+      </div>
+    </form>
+    <p class="ademo">Preview accounts: maya@jeff.demo, jordan@jeff.demo or priya@jeff.demo — password <b>jeff-demo-2026</b>. Remove this hint before real deployment.</p>
+  </div>
+</div>
 <div class="stage">
   <div class="phone" id="phone">
     <div class="notch"></div>
@@ -1600,8 +1636,12 @@ async function playMonth(){
 function resetPersona(){ playing = false; S.dec = {}; S.mi = 0; S.moves = []; S.safe = null; S.history = []; S.ans = {}; S.pay = null; S.side = 0; S.found = []; S.date = "Oct 1"; S.living = []; S.goals = []; S.pendingGoal = null; S.planning = false; $("#call").className = "call"; S.inCall = false; }
 const HR = {};
 function paintControls(){
-  $("#personas").innerHTML = Object.entries(P).map(([k,v]) => `<button class="pbtn" data-p="${k}" aria-pressed="${k === S.key}"><b>${v.label}</b><span>${v.blurb}</span><span class="via">Enrolled via ${esc((HR[k] && HR[k].employer) || v.payer)}</span></button>`).join("");
+  // Production: each signed-in user sees only their own persona (their own HR-backed profile).
+  const roster = Object.entries(P).filter(([k]) => !USER || k === S.key);
+  $("#personas").innerHTML = roster.map(([k,v]) => `<button class="pbtn" data-p="${k}" aria-pressed="${k === S.key}"><b>${v.label}</b><span>${v.blurb}</span><span class="via">Enrolled via ${esc((HR[k] && HR[k].employer) || v.payer)}</span></button>`).join("")
+    + (USER ? `<button class="chip" id="signout" type="button">Sign out · ${esc(USER.email)}</button>` : "");
   document.querySelectorAll(".pbtn").forEach(b => b.onclick = () => { S.key = b.dataset.p; resetPersona(); paintControls(); welcome(); });
+  const so = $("#signout"); if (so) so.onclick = signOut;
   const d = p();
   const hr = HR[S.key];
   $("#hrfeed").innerHTML = hr ? `
@@ -1906,8 +1946,58 @@ async function llm(task, schema){
   catch(e){ if (e && e.code === "not_granted"){ liveAI = false; paintAI(); } return null; }
 }
 
-paintControls(); paintAI(); getSampler(); welcome();
-if (typeof fetch === "function") fetch("/api/employer").then(r => r.ok ? r.json() : null).then(j => { if (j && j.employees){ Object.assign(HR, j.employees); paintControls(); } }).catch(() => {});
+/* ---------- Sign-in gate: nobody sees the app (or any data) without a session ---------- */
+let USER = null, authMode = "in";
+function showAuth(mode, note){
+  authMode = mode || "in";
+  $("#auth").hidden = false;
+  $("#authTitle").textContent = authMode === "up" ? "Create your Jeff account" : "Sign in to Jeff";
+  $("#authSwap").textContent = authMode === "up" ? "I have an account" : "Create account";
+  $("#authGo").textContent = authMode === "up" ? "Create account" : "Sign in";
+  $("#authErr").textContent = note || "";
+}
+function hideAuth(){ $("#auth").hidden = true; }
+async function signOut(){
+  try { await fetch("/api/auth/logout", {method:"POST"}); } catch(e){}
+  location.reload();
+}
+async function applyMe(me){
+  USER = me.user;
+  if (me.persona && P[me.persona]){
+    S.key = me.persona;
+    if (me.hr) HR[me.persona] = me.hr;
+    hideAuth(); paintControls(); paintAI(); welcome();
+  } else {
+    showAuth("in", "You're signed in, but your employer hasn't linked an HR feed to your account yet, so the guided experience isn't available.");
+  }
+}
+async function boot(){
+  paintAI(); getSampler();
+  try {
+    const r = await fetch("/api/me");
+    if (r.ok) return applyMe(await r.json());
+  } catch(e){}
+  showAuth("in");
+}
+$("#authSwap").onclick = () => showAuth(authMode === "in" ? "up" : "in");
+$("#authForm").onsubmit = async e => {
+  e.preventDefault(); hush();
+  const email = $("#authEmail").value.trim(), password = $("#authPass").value;
+  $("#authErr").textContent = ""; $("#authGo").disabled = true;
+  try {
+    const r = await fetch(authMode === "up" ? "/api/auth/signup" : "/api/auth/login", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ email, password, name: email.split("@")[0] })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok){ $("#authErr").textContent = j.error || "That didn't work. Try again."; return; }
+    const me = await fetch("/api/me").then(r => r.ok ? r.json() : null).catch(() => null);
+    if (me) await applyMe(me);
+    else $("#authErr").textContent = "Signed in, but your profile couldn't load. Try again.";
+  } catch(err){ $("#authErr").textContent = "Network problem. Try again."; }
+  finally { $("#authGo").disabled = false; }
+};
+paintAI(); getSampler(); boot();
 
 </script>
 </body>
