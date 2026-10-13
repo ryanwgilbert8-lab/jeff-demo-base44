@@ -1,4 +1,9 @@
-# Jeff demo
+# Jeff
+
+- `app/`: the production app (Next.js + Supabase + Plaid + Claude), built for companies that hire classes of SDRs, BDRs and entry-level sales reps. See `app/README.md`.
+- Everything else here is the original investor demo.
+
+## Jeff demo
 
 Interactive investor demo for Jeff. One web page (`public/index.html`) plus a tiny Node server (`server.js`).
 
