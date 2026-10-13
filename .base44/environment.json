@@ -5,7 +5,7 @@
   "secrets": [
     {
       "name": "ANTHROPIC_API_KEY",
-      "description": "Anthropic API key for live AI replies. Optional — without it the demo runs in scripted mode with all buttons still working.",
+      "description": "Anthropic API key powering the financial brain (server-side replies in /api/jeff). Without it the app runs in scripted mode. Get it from https://console.anthropic.com/settings/keys.",
       "requiredAtBoot": false
     }
   ]

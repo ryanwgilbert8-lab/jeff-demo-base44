@@ -1,9 +1,15 @@
 {
   "name": "jeff-demo",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Interactive investor demo for Jeff, the AI that runs your money",
+  "description": "Jeff — AI financial assistant for employees, fed by their employer's HR/payroll data",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node lib/migrate.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  },
   "engines": { "node": ">=18" }
 }
