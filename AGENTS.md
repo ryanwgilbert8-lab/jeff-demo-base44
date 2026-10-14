@@ -64,6 +64,15 @@ with HR data injected from Postgres). Client is a single static page with no bui
   `home`) and falls back to the demo when `!p().live`. Jeff can't move money for real users: nothing is
   simulated, and moves are described as transfers to set up in their own bank.
 
+## Jeff on his own (real users)
+- `lib/watch.js` runs after every bank sync (Plaid webhook, refresh, or the hourly background refresh of
+  banks not synced in 6 hours). It writes `notices` (deduped per event) for: payday (with that paycheck's
+  transfers), a commission landing (split by the engine's commission rules), spending creeping past an
+  agreed category, and a planned transfer that didn't happen within 3 days of payday. It only judges what
+  happened after the plan was agreed (`live_state.data.plannedAt`).
+- The page shows unread notices in Jeff's chat on the home screen (`showNotices`), then marks them read.
+  Routes: `GET /api/live/notices?refresh=1`, `POST /api/live/notices/read`. In-app only so far; no email/push.
+
 ## HRIS feed
 - `POST /api/hris/feed` with `X-HRIS-Secret: <employers.feed_secret>` upserts employees by
   `(employer_id, hr_id)`. Feed secrets are per-employer, generated at seed time — read them

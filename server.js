@@ -11,6 +11,7 @@ const auth = require("./lib/auth");
 const team = require("./lib/team");
 const plaid = require("./lib/plaid");
 const live = require("./lib/profile");
+const watch = require("./lib/watch");
 const { migrate, seedOrRemoveDemoUsers } = require("./lib/migrate");
 
 const PORT = process.env.PORT || 3000;
@@ -238,6 +239,20 @@ async function handleLiveState(req, res, user) {
   return json(res, 200, { ok: true });
 }
 
+// What Jeff noticed. Refreshes the user's banks first when they haven't synced in a while.
+async function handleNotices(req, res, user) {
+  if (/[?&]refresh=1/.test(req.url) && plaid.enabled()) {
+    const { rows: [r] } = await pool.query("SELECT bool_or(synced_at IS NULL OR synced_at < now() - interval '30 minutes') AS stale FROM plaid_items WHERE user_id = $1", [user.id]);
+    if (r && r.stale) await plaid.syncUser(user.id);
+    else await watch.checkUser(user.id);
+  }
+  return json(res, 200, { notices: await watch.forUser(user.id) });
+}
+async function handleNoticesRead(req, res, user) {
+  await watch.markRead(user.id);
+  return json(res, 200, { ok: true });
+}
+
 /* ---------- Admin: employers and team codes ---------- */
 async function adminOnly(req, res, user, fn) {
   if (!user.is_admin) return json(res, 403, { error: "Admins only" });
@@ -362,6 +377,8 @@ const ROUTES = [
   ["GET", /^\/api\/live\/profile$/, handleLiveProfile, true],
   ["POST", /^\/api\/live\/plan$/, handleLivePlan, true],
   ["POST", /^\/api\/live\/state$/, handleLiveState, true],
+  ["GET", /^\/api\/live\/notices$/, handleNotices, true],
+  ["POST", /^\/api\/live\/notices\/read$/, handleNoticesRead, true],
   ["POST", /^\/api\/hris\/feed$/, handleFeed, false],
   ["POST", /^\/api\/jeff$/, handleJeff, true],
   ["POST", /^\/api\/plan$/, handlePlan, true]
@@ -390,4 +407,6 @@ http.createServer(async (req, res) => {
 }).listen(PORT, "0.0.0.0", async () => {
   console.log(`Jeff app running on port ${PORT}`);
   try { await migrate(); await seedOrRemoveDemoUsers(); } catch (e) { console.error("Boot migration failed:", e.message); }
+  // Keep real users' banks fresh even when Plaid webhooks aren't set up.
+  setInterval(() => plaid.syncStale().catch(e => console.error("background sync:", e.message)), 60 * 60 * 1000).unref();
 });

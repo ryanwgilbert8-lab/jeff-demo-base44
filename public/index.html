@@ -2174,6 +2174,8 @@ async function loadProfile(){
 }
 async function saveLiveState(){
   const state = { ans:S.ans, pay:S.pay, side:S.side, dec:S.dec, goals:S.goals, autoRun:S.autoRun, plan:LIVEPLAN,
+    routes: S.moves.length ? routes().map(r => ({label:r.label, amt:Math.round(r.amt), to:resolveTo(r.to).label})) : [],
+    plannedAt: (PROFILE && PROFILE.state && PROFILE.state.plannedAt) || new Date().toISOString(),
     living:livingList().map(c => ({key:c.key, name:c.name, amt:c.amt, orig:c.orig, type:c.type, status:c.status || null, card:!!c.card})) };
   try {
     await fetch("/api/live/state", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({state})});
@@ -2257,13 +2259,27 @@ authorize = async function(auto){
 
 const _live_home = home;
 home = async function(silent){
-  if (p().live){
-    S.date = todayLabel();
-    S.safe = PROFILE && PROFILE.safe != null ? PROFILE.safe : Math.round(spendPP() * 0.55);
-    if (S.autoRun == null) S.autoRun = true;
-  }
-  return _live_home(silent);
+  if (!p().live) return _live_home(silent);
+  S.date = todayLabel();
+  S.safe = PROFILE && PROFILE.safe != null ? PROFILE.safe : Math.round(spendPP() * 0.55);
+  if (S.autoRun == null) S.autoRun = true;
+  const r = await _live_home(silent);
+  showNotices();
+  return r;
 };
+const NOTICE_LABEL = {payday:"Payday", commission:"Commission landed", creep:"Spending check", missing:"Transfer check"};
+// What Jeff noticed in their real transactions since they last looked.
+async function showNotices(){
+  const j = await fetch("/api/live/notices?refresh=1").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!j || S.screen !== "home") return;
+  const unread = j.notices.filter(n => !n.read);
+  if (!unread.length) return;
+  unread.slice().reverse().forEach(n => addThread(`<div class="msg jf"><b>${esc(NOTICE_LABEL[n.kind] || "Jeff noticed")}</b> · ${esc(n.body)}</div>`));
+  banner(unread[0].body);
+  fetch("/api/live/notices/read", {method:"POST"}).catch(() => {});
+  if (!(await speak(unread[0].body))) return;
+  homeChips();
+}
 
 /* Picking up where they left off */
 function resumeLive(){
