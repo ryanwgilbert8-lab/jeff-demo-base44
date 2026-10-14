@@ -40,6 +40,25 @@ button{font:inherit; color:inherit; cursor:pointer}
 .auth .abtn:disabled{opacity:.6; cursor:default}
 .auth .aswap{margin-top:14px; font-size:13px; color:var(--muted)}
 .auth .aswap button{border:none; background:none; color:var(--jeff); text-decoration:underline; padding:0; font:inherit; cursor:pointer}
+body.live .controls, body.live .hidebtn{display:none}
+.admin{position:fixed; inset:0; z-index:90; overflow-y:auto; background:var(--paper); padding:28px 20px}
+.admin[hidden]{display:none}
+.admin .card{max-width:720px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:24px}
+.admin h1{font-family:"Bricolage Grotesque",system-ui,sans-serif; font-size:24px; margin:0 0 4px}
+.admin h2{font-size:15px; margin:22px 0 8px}
+.admin .row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end}
+.admin label{display:block; font-size:12.5px; color:var(--muted)}
+.admin input, .admin select{display:block; margin-top:4px; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--ink); font:inherit; min-width:120px}
+.admin button{padding:9px 14px; border-radius:10px; border:0; background:var(--jeff); color:var(--onjeff); font-weight:600}
+.admin button{white-space:nowrap}
+.admin button.plain{background:transparent; color:var(--ink); border:1px solid var(--line); font-weight:500}
+.admin table{width:100%; border-collapse:collapse; font-size:14px; margin-top:6px}
+.admin td, .admin th{text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top}
+.admin th{font-size:12px; color:var(--muted); font-weight:600}
+.admin code{font-size:14px; font-weight:700; background:var(--paper); padding:2px 6px; border-radius:6px}
+.admin .msg{font-size:13px; margin:8px 0 0; min-height:18px}
+.topbar{position:fixed; top:12px; right:14px; z-index:60; display:flex; gap:8px}
+.topbar button{background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:12.5px; color:var(--muted)}
 .auth .ademo{margin-top:16px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:12px}
 #personas .chip{margin-top:8px; color:var(--ink); border:1px solid var(--line); background:var(--surface); padding:8px 12px; border-radius:999px; font-size:13px}
 
@@ -219,7 +238,8 @@ body.clean .controls{display:none}
 .endcall{margin-top:12px; background:var(--flag); color:#fff; border:0; border-radius:999px; padding:10px; width:100%; font-weight:600}
 
 .banner{position:absolute; left:10px; right:10px; top:44px; z-index:35; background:var(--surface); color:var(--ink); border-radius:18px; padding:12px 14px; box-shadow:0 18px 40px -12px rgba(0,0,0,.35); transform:translateY(-140%); transition:transform .45s cubic-bezier(.2,.9,.3,1.2); cursor:pointer; border:1px solid var(--line)}
-.banner.show{transform:none}
+.banner{visibility:hidden; transition:transform .45s cubic-bezier(.2,.9,.3,1.2), visibility 0s .45s}
+.banner.show{transform:none; visibility:visible; transition:transform .45s cubic-bezier(.2,.9,.3,1.2), visibility 0s}
 .banner .bt{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:3px}
 .banner b{font-weight:600}
 .banner p{margin:0; font-size:14px}
@@ -288,21 +308,30 @@ body.clean .controls{display:none}
 <div class="auth" id="auth" hidden>
   <div class="card">
     <h1 id="authTitle">Sign in to Jeff</h1>
-    <p class="sub">Your salary and benefits come from your employer's HR feed — no re-typing.</p>
+    <p class="sub" id="authSub">Your money, run for you. Free from your employer, and private.</p>
     <form id="authForm" autocomplete="on">
-      <label for="authEmail">Work email</label>
-      <input id="authEmail" type="email" required>
+      <div id="upOnly" hidden>
+        <label for="authFirst">First name</label>
+        <input id="authFirst" autocomplete="given-name" maxlength="60">
+      </div>
+      <label for="authEmail">Email</label>
+      <input id="authEmail" type="email" autocomplete="email" required>
       <label for="authPass">Password</label>
-      <input id="authPass" type="password" required minlength="8">
+      <input id="authPass" type="password" required minlength="8" autocomplete="current-password">
+      <div id="upOnly2" hidden>
+        <label for="authCode">Team code <span style="font-weight:400;color:var(--muted)">(from your company, optional)</span></label>
+        <input id="authCode" autocapitalize="characters" autocomplete="off" placeholder="e.g. ACME-4F2A91">
+      </div>
       <p class="aerr" id="authErr"></p>
       <div class="actions">
-        <button type="button" class="abtn" id="authSwap">Create account</button>
         <button type="submit" class="abtn ap" id="authGo">Sign in</button>
       </div>
+      <p class="aswap"><span id="authSwapText">New to Jeff?</span> <button type="button" id="authSwap">Create an account</button></p>
     </form>
-    <p class="ademo">Preview accounts: maya@jeff.demo, jordan@jeff.demo or priya@jeff.demo — password <b>jeff-demo-2026</b>. Remove this hint before real deployment.</p>
+    <p class="ademo">Want to look around first? <a href="/demo">See the demo with sample data</a>.</p>
   </div>
 </div>
+<div class="admin" id="admin" hidden><div class="card" id="adminCard"></div></div>
 <div class="stage">
   <div class="phone" id="phone">
     <div class="notch"></div>
@@ -1979,58 +2008,190 @@ async function llm(task, schema){
   catch(e){ if (e && e.code === "not_granted"){ liveAI = false; paintAI(); } return null; }
 }
 
-/* ---------- Sign-in gate: nobody sees the app (or any data) without a session ---------- */
-let USER = null, authMode = "in";
+/* ================= Two modes =================
+   /      the real app: real people sign up, connect real accounts, and Jeff works from their data.
+   /demo  the investor demo: three sample people, presenter controls, no sign-in. */
+const LIVE = !/^\/demo\/?$/.test(location.pathname);
+let USER = null, ME = null, authMode = "in";
+
+/* ---------- Demo mode ---------- */
+async function bootDemo(){
+  try { Object.assign(HR, await fetch("/api/demo/hr").then(r => r.json())); } catch(e){}
+  paintControls(); welcome();
+}
+
+/* ---------- Live mode: sign-in gate. Nobody sees the app (or any data) without a session. ---------- */
 function showAuth(mode, note){
   authMode = mode || "in";
+  const up = authMode === "up";
   $("#auth").hidden = false;
-  $("#authTitle").textContent = authMode === "up" ? "Create your Jeff account" : "Sign in to Jeff";
-  $("#authSwap").textContent = authMode === "up" ? "I have an account" : "Create account";
-  $("#authGo").textContent = authMode === "up" ? "Create account" : "Sign in";
+  $("#authTitle").textContent = up ? "Create your Jeff account" : "Sign in to Jeff";
+  $("#authSub").textContent = up ? "Free from your employer, and private. Your company never sees your accounts or what you ask Jeff." : "Your money, run for you.";
+  $("#upOnly").hidden = !up; $("#upOnly2").hidden = !up;
+  $("#authFirst").required = up;
+  $("#authPass").autocomplete = up ? "new-password" : "current-password";
+  $("#authGo").textContent = up ? "Create account" : "Sign in";
+  $("#authSwapText").textContent = up ? "Already have an account?" : "New to Jeff?";
+  $("#authSwap").textContent = up ? "Sign in" : "Create an account";
   $("#authErr").textContent = note || "";
+  (up ? $("#authFirst") : $("#authEmail")).focus();
 }
 function hideAuth(){ $("#auth").hidden = true; }
 async function signOut(){
+  hush();
   try { await fetch("/api/auth/logout", {method:"POST"}); } catch(e){}
   location.reload();
 }
-async function applyMe(me){
-  USER = me.user;
-  if (me.persona && P[me.persona]){
-    S.key = me.persona;
-    if (me.hr) HR[me.persona] = me.hr;
-    hideAuth(); paintControls(); paintAI(); welcome();
-  } else {
-    showAuth("in", "You're signed in, but your employer hasn't linked an HR feed to your account yet, so the guided experience isn't available.");
-  }
+async function loadMe(){
+  const r = await fetch("/api/me");
+  if (r.status === 401) return null;
+  if (!r.ok) throw new Error("me " + r.status);
+  return r.json();
 }
-async function boot(){
-  paintAI(); getSampler();
-  try {
-    const r = await fetch("/api/me");
-    if (r.ok) return applyMe(await r.json());
-  } catch(e){}
+function paintTopbar(){
+  let bar = $("#topbar");
+  if (!bar){ document.body.insertAdjacentHTML("beforeend", '<div class="topbar" id="topbar"></div>'); bar = $("#topbar"); }
+  bar.innerHTML = (ME.user.isAdmin ? '<button id="adminBtn">Admin</button>' : "") + `<button id="outBtn">Sign out</button>`;
+  $("#outBtn").onclick = signOut;
+  if ($("#adminBtn")) $("#adminBtn").onclick = openAdmin;
+}
+async function enterLive(me){
+  ME = me; USER = me.user;
+  hideAuth(); paintTopbar(); paintAI();
+  liveWelcome();
+}
+async function bootLive(){
+  document.body.classList.add("live");
+  let me = null;
+  try { me = await loadMe(); } catch(e){ return showAuth("in", "We couldn't reach Jeff. Check your connection and refresh."); }
+  if (me) return enterLive(me);
   showAuth("in");
 }
 $("#authSwap").onclick = () => showAuth(authMode === "in" ? "up" : "in");
 $("#authForm").onsubmit = async e => {
   e.preventDefault(); hush();
-  const email = $("#authEmail").value.trim(), password = $("#authPass").value;
+  const up = authMode === "up";
+  const body = { email: $("#authEmail").value.trim(), password: $("#authPass").value };
+  if (up){ body.firstName = $("#authFirst").value.trim(); body.teamCode = $("#authCode").value.trim(); }
+  if (up && !body.firstName){ $("#authErr").textContent = "Add your first name."; return; }
   $("#authErr").textContent = ""; $("#authGo").disabled = true;
   try {
-    const r = await fetch(authMode === "up" ? "/api/auth/signup" : "/api/auth/login", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ email, password, name: email.split("@")[0] })
+    const r = await fetch(up ? "/api/auth/signup" : "/api/auth/login", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok){ $("#authErr").textContent = j.error || "That didn't work. Try again."; return; }
-    const me = await fetch("/api/me").then(r => r.ok ? r.json() : null).catch(() => null);
-    if (me) await applyMe(me);
-    else $("#authErr").textContent = "Signed in, but your profile couldn't load. Try again.";
+    const me = await loadMe();
+    if (me) await enterLive(me);
+    else $("#authErr").textContent = "Signed in, but your account couldn't load. Try again.";
   } catch(err){ $("#authErr").textContent = "Network problem. Try again."; }
   finally { $("#authGo").disabled = false; }
 };
-paintAI(); getSampler(); boot();
+
+/* ---------- Live screens ---------- */
+function liveWelcome(){
+  hush(); S.screen = "welcome"; S.handler = null;
+  const first = ME.user.firstName;
+  const emp = ME.employer;
+  const bars = Array.from({length:22}, (_,i) => `<span style="animation-delay:${(i*0.11)%1.6}s"></span>`).join("");
+  show(`<div class="welcome"><div class="top">
+      ${emp ? `<p style="margin:0 0 18px;font-size:14px;opacity:.75">A benefit from ${esc(emp.name)}</p>` : ""}
+      <h1 class="wordmark">Jeff</h1>
+      <p class="tag">${first ? `Hi ${esc(first)}. ` : ""}Your money, run for you. Connect your accounts, talk it through, and Jeff handles the rest.</p>
+      <div class="bigwave" aria-hidden="true">${bars}</div></div>
+    <div class="bottom"><button class="primary" id="go">Connect my accounts</button>
+      <p class="fine">Read-only. Jeff can see your accounts but can never move money without you.</p>
+      ${emp ? "" : `<button class="fine" id="haveCode" style="background:none;border:0;color:inherit;text-decoration:underline;display:block;margin:10px auto 0;cursor:pointer">Have a team code from your company?</button>`}
+    </div></div>`);
+  $("#go").onclick = () => { if ("speechSynthesis" in window) speechSynthesis.speak(new SpeechSynthesisUtterance("")); liveConnect(); };
+  if ($("#haveCode")) $("#haveCode").onclick = liveJoin;
+}
+
+function liveJoin(){
+  show(`<form class="pad" id="jf" novalidate>
+      <h1 class="title">Join your team</h1>
+      <p class="sub">Enter the code from your company's welcome email. Jeff will plan around your benefits, like your 401(k) match.</p>
+      <label class="search" style="margin-bottom:10px"><input name="code" autocapitalize="characters" placeholder="e.g. ACME-4F2A91" style="text-transform:uppercase"></label>
+      <p class="sub" id="jerr" style="color:var(--flag);min-height:20px;margin:0 0 10px"></p>
+      <button class="primary" id="jgo">Join</button>
+      <button type="button" class="primary" id="jback" style="background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:10px">Back</button>
+    </form>`);
+  $("#jback").onclick = liveWelcome;
+  $("#jf").onsubmit = async e => {
+    e.preventDefault();
+    $("#jgo").disabled = true;
+    const r = await fetch("/api/me/join", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({code: $("#jf").code.value})}).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok){ $("#jerr").textContent = j.error || "Network problem. Try again."; $("#jgo").disabled = false; return; }
+    ME = await loadMe(); liveWelcome();
+  };
+}
+
+// Step 2 replaces this with a real bank connection.
+function liveConnect(){
+  S.screen = "connect";
+  show(`<div class="pad">
+    <h1 class="title">Connect your accounts</h1>
+    <p class="sub">Real bank connections are being switched on next. Check back soon.</p>
+    <button class="primary" id="back">Back</button></div>`);
+  $("#back").onclick = liveWelcome;
+}
+
+/* ---------- Admin: companies and team codes ---------- */
+async function openAdmin(){
+  const box = $("#admin"), card = $("#adminCard");
+  box.hidden = false;
+  card.innerHTML = `<p class="sub">Loading…</p>`;
+  const r = await fetch("/api/admin/overview");
+  if (!r.ok){ card.innerHTML = `<p>Couldn't load admin data.</p><button class="plain" id="ax">Close</button>`; $("#ax").onclick = () => box.hidden = true; return; }
+  const o = await r.json();
+  const pct = v => (Number(v) % 1 ? Number(v).toFixed(1) : Number(v)) + "%";
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div><h1>Admin</h1><p class="sub" style="color:var(--muted);margin:0">${o.users} ${o.users === 1 ? "person has" : "people have"} signed up. ${o.without_employer} without a company.</p></div>
+      <button class="plain" id="ax">Close</button>
+    </div>
+    <h2>Add a company</h2>
+    <form class="row" id="ae">
+      <label>Company name<input name="name" required placeholder="Acme Software"></label>
+      <label>401(k) match %<input name="matchPct" type="number" min="0" max="25" step="0.5" value="4" style="min-width:90px;width:90px"></label>
+      <label>401(k) provider<input name="k401Provider" placeholder="Fidelity"></label>
+      <label>Pay schedule<select name="payFrequency"><option value="">Not sure</option><option>biweekly</option><option>semimonthly</option><option>weekly</option><option>monthly</option></select></label>
+      <button>Add company</button>
+    </form>
+    <p class="msg" id="aem"></p>
+    <h2>Companies and team codes</h2>
+    ${o.employers.length ? `<table><tr><th>Company</th><th>Match</th><th>People</th><th>Team codes</th><th></th></tr>
+      ${o.employers.map(e => `<tr><td><b>${esc(e.name)}</b>${e.k401_provider ? `<br><span style="color:var(--muted);font-size:12.5px">${esc(e.k401_provider)}</span>` : ""}</td>
+        <td>${pct(e.match_pct)}</td><td>${e.members}</td>
+        <td>${e.codes.length ? e.codes.map(c => `<div><code>${esc(c.code)}</code> <span style="color:var(--muted);font-size:12.5px">${c.cohort ? esc(c.cohort) + " · " : ""}${c.uses}${c.maxUses ? " of " + c.maxUses : ""} used${c.expiresAt ? " · expires " + new Date(c.expiresAt).toLocaleDateString() : ""}</span></div>`).join("") : '<span style="color:var(--muted)">None yet</span>'}</td>
+        <td><button class="plain" data-code="${e.id}">New code</button></td></tr>`).join("")}</table>`
+      : `<p class="sub" style="color:var(--muted)">No companies yet. Add one above, then make a team code for each hiring class.</p>`}
+    <p class="msg" id="acm"></p>`;
+  $("#ax").onclick = () => box.hidden = true;
+  $("#ae").onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const r = await fetch("/api/admin/employers", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(Object.fromEntries(f))});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return $("#aem").textContent = j.error || "Couldn't add it.";
+    openAdmin();
+  };
+  card.querySelectorAll("[data-code]").forEach(b => b.onclick = async () => {
+    const cohort = prompt("Which group is this code for? (e.g. SDR class, Jan 2027). Leave blank for anyone at the company.") ;
+    if (cohort === null) return;
+    const max = prompt("Most people who can use it? Leave blank for no limit.");
+    if (max === null) return;
+    const r = await fetch("/api/admin/codes", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({employerId: Number(b.dataset.code), cohort, maxUses: max.trim() || null})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return $("#acm").textContent = j.error || "Couldn't make a code.";
+    await openAdmin();
+    $("#acm").textContent = `New team code: ${j.code}. Send it to the class in their welcome email.`;
+  });
+}
+
+paintAI(); getSampler();
+if (LIVE) bootLive(); else bootDemo();
 
 </script>
 </body>

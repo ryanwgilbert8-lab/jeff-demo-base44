@@ -26,25 +26,30 @@ with HR data injected from Postgres). Client is a single static page with no bui
 - `GET /api/health` → `{"ai": bool, "db": bool}`; 503 when the DB is unreachable. Compose
   healthchecks both `db` (pg_isready) and `web` (this endpoint).
 
+## Two modes
+- `/` is the real app for real people. `/demo` is the investor demo: three sample personas
+  (the `P` object), presenter controls, no sign-in, sample HR data from `GET /api/demo/hr`.
+- In the page, `LIVE` decides the mode; `bootLive()` / `bootDemo()` start each one. Live mode
+  adds `body.live`, which hides the presenter controls.
+
 ## Auth + tenant isolation
 - Password auth (scrypt) with httpOnly session cookie `jeff_session`, 30-day sessions.
-- Every user-scoped route resolves the user via `auth.userFromReq` — data is joined through
-  the user's own `employee_id`, so users can't read other employees' HR records.
-- Signup links a user to an HRIS-fed employee by matching email.
-- Seeded demo accounts: `maya@jeff.demo`, `jordan@jeff.demo`, `priya@jeff.demo`,
-  password `jeff-demo-2026` (`DEMO_PASSWORD` env overrides). The sign-in card shows a
-  credentials hint — remove before real deployment.
-- Frontend gates everything behind the session: boot calls `/api/me`; no session →
-  sign-in overlay. A signed-in user sees only their own persona card (`paintControls`
-  filters to `S.key`), with HR data from their own record — the old public
-  `/api/employer` endpoint was removed on purpose.
+- Every user-scoped route resolves the user via `auth.userFromReq`, which also joins their
+  employer. Data is always scoped to the signed-in user.
+- Sign-up takes first name, email, password and an optional team code. A team code links the
+  user to an employer and cohort (`lib/team.js`); they can also join later via `POST /api/me/join`.
+  Signup still links to an HRIS-fed employee by matching email when one exists.
+- Admins are the emails in the `ADMIN_EMAILS` secret. They get an Admin screen to add companies
+  (name, 401(k) match %, provider, pay schedule) and make team codes (`/api/admin/*`).
+- The old demo accounts (`*@jeff.demo`, published password) are deleted on boot unless
+  `SEED_DEMO_USERS=1`, along with their sample companies if nothing real uses them.
+- `GET /api/me` returns `{ user: {id, email, firstName, isAdmin}, employer, cohort, answers, hr }`.
+- `POST /api/me/answers` merges what the user has told Jeff into `users.answers`.
 
 ## HRIS feed
 - `POST /api/hris/feed` with `X-HRIS-Secret: <employers.feed_secret>` upserts employees by
   `(employer_id, hr_id)`. Feed secrets are per-employer, generated at seed time — read them
   from the `employers` table (no admin UI yet).
-- `GET /api/me` returns `{ user, persona, hr }`; `persona` maps to the scripted demo flow
-  (`P` object in `index.html`), `hr` is the raw HRIS record shown in the controls panel.
 
 ## Custom plan building
 - `POST /api/plan` (auth): client posts candidate moves + confirmed money numbers; Claude
@@ -58,10 +63,11 @@ with HR data injected from Postgres). Client is a single static page with no bui
 
 ## Verify it works
 1. `curl -s localhost:3000/api/health` → `{"ai":true,"db":true}` (ai depends on the key).
-2. Login: `curl -s -c /tmp/cj -X POST localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{"email":"maya@jeff.demo","password":"jeff-demo-2026"}'`.
-3. `curl -s -b /tmp/cj localhost:3000/api/me` → own persona + HR data; without the cookie → 401.
+2. Sign up: `curl -s -c /tmp/cj -X POST localhost:3000/api/auth/signup -H 'Content-Type: application/json' -d '{"firstName":"Test","email":"test@example.com","password":"long-enough-1"}'`.
+3. `curl -s -b /tmp/cj localhost:3000/api/me` → your own profile; without the cookie → 401.
 4. `POST /api/jeff` with the cookie returns Claude JSON; exchanges land in `messages`.
-5. In the preview: sign-in gate → log in as a demo account → persona card + HR feed rows render.
+5. In the preview: `/` shows the sign-in card; create an account and land on the welcome screen.
+   `/demo` shows the sample-data demo with controls and no sign-in.
 
 ## Notes
 - The guided demo flow is still scripted per persona template; real Claude replies power

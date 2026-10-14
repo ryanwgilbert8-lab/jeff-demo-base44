@@ -7,6 +7,11 @@
       "name": "ANTHROPIC_API_KEY",
       "description": "Anthropic API key powering the financial brain (server-side replies in /api/jeff). Without it the app runs in scripted mode. Get it from https://console.anthropic.com/settings/keys.",
       "requiredAtBoot": false
+    },
+    {
+      "name": "ADMIN_EMAILS",
+      "description": "Comma-separated emails of people who can open the Admin screen to add companies and make team codes, e.g. you@yourcompany.com. Sign up with that email first.",
+      "requiredAtBoot": false
     }
   ]
 }

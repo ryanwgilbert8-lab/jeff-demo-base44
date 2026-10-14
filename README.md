@@ -64,14 +64,17 @@ Services: `db` (Postgres, healthchecked) → `migrate` (one-shot: `npm ci` + `no
 `web` (`npm ci` + `node --watch server.js` on port 3000, healthchecked via `/api/health`,
 which reports `{ ai, db }` and fails when the database is unreachable).
 
-## Demo accounts (seeded)
-`maya@jeff.demo`, `jordan@jeff.demo`, `priya@jeff.demo` — password `jeff-demo-2026`
-(override with `DEMO_PASSWORD` before seeding). **Remove the credentials hint in the
-sign-in card and rotate these before any real deployment.**
+## Real users, companies and team codes
+- `/` is the real app. Anyone can create an account (first name, email, password). A team code
+  from their company links them to that company's benefits; it's optional and can be added later.
+- `/demo` is the investor demo with sample people and presenter controls. No sign-in.
+- Admin: put your email in the `ADMIN_EMAILS` secret, sign up with it, and use the **Admin**
+  button to add a company (401(k) match, provider) and make a team code for each hiring class.
+- The old seeded demo logins are removed on boot. Set `SEED_DEMO_USERS=1` to bring them back.
 
 ## Not yet production (known gaps)
 - No SSO (Okta/Entra) — password auth with sessions only.
 - HRIS integration is a generic push API, not certified Workday/ADP/Gusto connectors.
-- No employer-facing admin UI (feed secrets are read from the DB directly).
+- Admin UI covers companies and team codes only; HRIS feed secrets are still read from the DB.
 - No rate limiting, audit logging, or compliance/liability review — required before
   handling real employee financial data.

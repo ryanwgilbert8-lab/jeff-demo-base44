@@ -8,7 +8,8 @@ const path = require("path");
 const pool = require("./lib/db");
 const ai = require("./lib/ai");
 const auth = require("./lib/auth");
-const { migrate } = require("./lib/migrate");
+const team = require("./lib/team");
+const { migrate, seedOrRemoveDemoUsers } = require("./lib/migrate");
 
 const PORT = process.env.PORT || 3000;
 const HTML_PATH = path.join(__dirname, "public", "index.html");
@@ -65,19 +66,29 @@ async function handleSignup(req, res) {
   try { body = await readBody(req); } catch { return json(res, 400, { error: "Invalid JSON" }); }
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
-  const name = String(body.name || "").trim().slice(0, 100) || null;
+  const firstName = String(body.firstName || "").trim().slice(0, 60) || null;
+  const teamCode = team.normalize(body.teamCode);
+  if (!firstName) return json(res, 400, { error: "Add your first name" });
   if (!EMAIL_RE.test(email)) return json(res, 400, { error: "Enter a valid email address" });
   if (password.length < 8) return json(res, 400, { error: "Password must be at least 8 characters" });
   const { rows: [existing] } = await pool.query("SELECT id FROM users WHERE lower(email) = $1", [email]);
   if (existing) return json(res, 409, { error: "That email already has an account. Try signing in." });
+  if (teamCode) {
+    const problem = await team.codeProblem(teamCode);
+    if (problem) return json(res, 400, { error: problem });
+  }
   // Link to an HRIS-fed employee record by email, when the employer has pushed one.
   const { rows: [employee] } = await pool.query(
     "SELECT id FROM employees WHERE lower(email) = $1 ORDER BY updated_at DESC LIMIT 1", [email]
   );
   const { rows: [user] } = await pool.query(
-    "INSERT INTO users(email, password_hash, name, employee_id) VALUES ($1, $2, $3, $4) RETURNING id",
-    [email, auth.hashPassword(password), name, employee ? employee.id : null]
+    "INSERT INTO users(email, password_hash, name, first_name, employee_id) VALUES ($1, $2, $3, $3, $4) RETURNING id",
+    [email, auth.hashPassword(password), firstName, employee ? employee.id : null]
   );
+  if (teamCode) {
+    const problem = await team.redeem(user.id, teamCode);
+    if (problem) console.error("Team code failed after sign-up check:", problem);
+  }
   await auth.createSession(res, user.id);
   return json(res, 200, { ok: true });
 }
@@ -104,11 +115,60 @@ async function handleLogout(req, res) {
 
 // Only ever returns the signed-in user's own record — per-user isolation.
 async function handleMe(req, res, user) {
+  const hr = user.hr_data || null;
+  const matchPct = hr?.benefits?.retirement?.matchPct ?? (user.employer_id ? Number(user.match_pct) : null);
   return json(res, 200, {
-    user: { id: user.id, email: user.email, name: user.name },
-    persona: user.persona_key || null,
-    hr: user.hr_data || null
+    user: { id: user.id, email: user.email, firstName: user.first_name || user.name || null, isAdmin: !!user.is_admin },
+    employer: user.employer_name ? {
+      name: user.employer_name,
+      matchPct,
+      k401Provider: user.k401_provider || null,
+      payFrequency: hr?.payFrequency || user.pay_frequency || null
+    } : null,
+    cohort: user.cohort || null,
+    answers: user.answers || {},
+    hr
   });
+}
+
+// Join an employer after sign-up (or switch to a new one) with a team code.
+async function handleJoin(req, res, user) {
+  let body;
+  try { body = await readBody(req); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  const problem = await team.redeem(user.id, body.code);
+  if (problem) return json(res, 400, { error: problem });
+  return json(res, 200, { ok: true });
+}
+
+// Saves what the user has told Jeff (merged into their stored answers).
+async function handleAnswers(req, res, user) {
+  let body;
+  try { body = await readBody(req, 50000); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  if (!body || typeof body.answers !== "object" || Array.isArray(body.answers)) return json(res, 400, { error: "Body must be { answers: {...} }" });
+  const clean = {};
+  for (const [k, v] of Object.entries(body.answers).slice(0, 50)) {
+    if (/^[a-zA-Z0-9_]{1,40}$/.test(k) && ["string", "number", "boolean"].includes(typeof v)) clean[k] = typeof v === "string" ? v.slice(0, 300) : v;
+  }
+  const { rows: [row] } = await pool.query("UPDATE users SET answers = answers || $1::jsonb WHERE id = $2 RETURNING answers", [JSON.stringify(clean), user.id]);
+  return json(res, 200, { answers: row.answers });
+}
+
+/* ---------- Admin: employers and team codes ---------- */
+async function adminOnly(req, res, user, fn) {
+  if (!user.is_admin) return json(res, 403, { error: "Admins only" });
+  let body = {};
+  if (req.method === "POST") { try { body = await readBody(req); } catch { return json(res, 400, { error: "Invalid JSON" }); } }
+  const out = await fn(body);
+  return json(res, out && out.error ? 400 : 200, out);
+}
+const handleAdminOverview = (req, res, user) => adminOnly(req, res, user, () => team.overview());
+const handleAdminEmployer = (req, res, user) => adminOnly(req, res, user, b => team.createEmployer(b));
+const handleAdminCode = (req, res, user) => adminOnly(req, res, user, b => team.createCode(b));
+
+// Sample HR records for the /demo personas. Fake data, safe to serve publicly.
+function handleDemoHr(req, res) {
+  const feed = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "employer.json"), "utf8"));
+  return json(res, 200, feed.employees || {});
 }
 
 /* ---------- Financial brain: custom plan builder ---------- */
@@ -203,6 +263,12 @@ const ROUTES = [
   ["POST", /^\/api\/auth\/login$/, handleLogin, false],
   ["POST", /^\/api\/auth\/logout$/, handleLogout, false],
   ["GET", /^\/api\/me$/, handleMe, true],
+  ["POST", /^\/api\/me\/join$/, handleJoin, true],
+  ["POST", /^\/api\/me\/answers$/, handleAnswers, true],
+  ["GET", /^\/api\/admin\/overview$/, handleAdminOverview, true],
+  ["POST", /^\/api\/admin\/employers$/, handleAdminEmployer, true],
+  ["POST", /^\/api\/admin\/codes$/, handleAdminCode, true],
+  ["GET", /^\/api\/demo\/hr$/, handleDemoHr, false],
   ["POST", /^\/api\/hris\/feed$/, handleFeed, false],
   ["POST", /^\/api\/jeff$/, handleJeff, true],
   ["POST", /^\/api\/plan$/, handlePlan, true]
@@ -230,5 +296,5 @@ http.createServer(async (req, res) => {
   }
 }).listen(PORT, "0.0.0.0", async () => {
   console.log(`Jeff app running on port ${PORT}`);
-  try { await migrate(); } catch (e) { console.error("Boot migration failed:", e.message); }
+  try { await migrate(); await seedOrRemoveDemoUsers(); } catch (e) { console.error("Boot migration failed:", e.message); }
 });
