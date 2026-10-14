@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jeff
+      POSTGRES_PASSWORD: jeff
+      POSTGRES_DB: jeff
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jeff -d jeff"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: on-failure
+
+  migrate:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      - DATABASE_URL=postgres://jeff:jeff@db:5432/jeff
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && node lib/migrate.js"]
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://jeff:jeff@db:5432/jeff
+    env_file:
+      - /run/base44/app.env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec node --watch server.js"]
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  dbdata:
