@@ -46,6 +46,24 @@ with HR data injected from Postgres). Client is a single static page with no bui
 - `GET /api/me` returns `{ user: {id, email, firstName, isAdmin}, employer, cohort, answers, hr }`.
 - `POST /api/me/answers` merges what the user has told Jeff into `users.answers`.
 
+## Real users: banks, profile and plan
+- Banks connect through Plaid (`lib/plaid.js`, REST, no SDK), read-only. Secrets: `PLAID_CLIENT_ID`,
+  `PLAID_SECRET`, `PLAID_ENV` (sandbox | production), optional `PLAID_WEBHOOK_URL`. Access tokens are
+  AES-256-GCM encrypted (`TOKEN_ENCRYPTION_KEY`, or derived from `PLAID_SECRET`). Tables: `plaid_items`,
+  `accounts`, `transactions`. Routes: `GET /api/bank`, `POST /api/bank/{link-token,exchange,sync,remove}`,
+  `POST /api/plaid/webhook` (JWT-verified).
+- `lib/engine/` is the money engine (pure functions, tests in `test/`, run `npm test`). Every number
+  Jeff states for real users comes from it: paycheck detection (base vs commission), cost of living
+  from transactions, the plan, the commission split, debt payoff, safe to spend.
+- `lib/profile.js` turns a user's real data into the same shape as the demo personas (`P.live` in the
+  page): accounts, lead, paycheck, living costs with trims, questions, and plan moves. Routes:
+  `GET /api/live/profile`, `POST /api/live/plan` (moves from the engine for the agreed living costs and
+  answers), `POST /api/live/state` (saves answers, living costs, decisions; returning users resume at home).
+- In the page, real-user behavior lives in the "Real accounts drive the same screens" section. It wraps
+  demo functions (`askIncome`, `buildPlan`, `resolveTo`, `applyApproved`, `presentMove`, `authorize`,
+  `home`) and falls back to the demo when `!p().live`. Jeff can't move money for real users: nothing is
+  simulated, and moves are described as transfers to set up in their own bank.
+
 ## HRIS feed
 - `POST /api/hris/feed` with `X-HRIS-Secret: <employers.feed_secret>` upserts employees by
   `(employer_id, hr_id)`. Feed secrets are per-employer, generated at seed time — read them

@@ -9,11 +9,13 @@ const pool = require("./lib/db");
 const ai = require("./lib/ai");
 const auth = require("./lib/auth");
 const team = require("./lib/team");
+const plaid = require("./lib/plaid");
+const live = require("./lib/profile");
 const { migrate, seedOrRemoveDemoUsers } = require("./lib/migrate");
 
 const PORT = process.env.PORT || 3000;
 const HTML_PATH = path.join(__dirname, "public", "index.html");
-const STYLE = `You are Jeff, the voice of a money platform called Jeff that actually runs people's money for them, talking live with someone in a product demo. Think of the family member everyone wishes they had managing their money: warm, direct, remembers what matters to them, protective of their future, and willing to push back on a bad idea once, kindly, before respecting their call. You never lecture. Your reply is spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500". Only use facts in the person's data below. Never state something as fact that the person hasn't confirmed. Never invent accounts.`;
+const STYLE = `You are Jeff, a money coach that comes with someone's job as a benefit from their employer. Think of the family member everyone wishes they had managing their money: warm, direct, remembers what matters to them, protective of their future, and willing to push back on a bad idea once, kindly, before respecting their call. You never lecture. You can see their linked accounts (read-only) and the plan you agreed together. You cannot move money, open accounts or change payroll yourself: when something needs doing, say exactly what to set up and where. Your reply is spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500". Only use facts in the person's data below. Never state something as fact that the person hasn't confirmed. Never invent accounts.`;
 
 function send(res, code, type, body) {
   res.writeHead(code, { "Content-Type": type });
@@ -153,6 +155,89 @@ async function handleAnswers(req, res, user) {
   return json(res, 200, { answers: row.answers });
 }
 
+/* ---------- Banks (Plaid, read-only) ---------- */
+async function bankStatus(userId) {
+  const [{ rows: items }, { rows: accounts }, { rows: [tx] }] = await Promise.all([
+    pool.query("SELECT id, institution_name AS institution, status, synced_at AS \"syncedAt\" FROM plaid_items WHERE user_id = $1 ORDER BY created_at", [userId]),
+    pool.query(`SELECT id, plaid_item_id AS "itemId", name, mask, institution, kind, subtype, balance::float, apr::float, min_payment::float AS "minPayment"
+                  FROM accounts WHERE user_id = $1 ORDER BY institution, kind, name`, [userId]),
+    pool.query("SELECT count(*)::int AS n, min(date) AS since FROM transactions WHERE user_id = $1", [userId]),
+  ]);
+  return { enabled: plaid.enabled(), env: plaid.env(), items, accounts, transactions: tx.n, since: tx.since };
+}
+async function handleBank(req, res, user) { return json(res, 200, await bankStatus(user.id)); }
+
+async function handleLinkToken(req, res, user) {
+  if (!plaid.enabled()) return json(res, 503, { error: "Bank connections aren't switched on yet." });
+  try { return json(res, 200, { linkToken: await plaid.createLinkToken(user.id) }); }
+  catch (e) { console.error("link token:", e.message); return json(res, 502, { error: "Couldn't start the bank connection. Try again." }); }
+}
+
+async function handleExchange(req, res, user) {
+  if (!plaid.enabled()) return json(res, 503, { error: "Bank connections aren't switched on yet." });
+  let body;
+  try { body = await readBody(req); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  if (!body.publicToken) return json(res, 400, { error: "Missing publicToken" });
+  try {
+    const itemId = await plaid.exchange(user.id, String(body.publicToken), body.institution);
+    try { await plaid.syncItem(itemId); } catch (e) { console.error("first sync:", e.message); }
+    return json(res, 200, await bankStatus(user.id));
+  } catch (e) {
+    console.error("exchange:", e.message);
+    return json(res, 502, { error: "Couldn't finish connecting that bank. Try again." });
+  }
+}
+
+async function handleBankSync(req, res, user) {
+  const r = await plaid.syncUser(user.id);
+  return json(res, 200, { ...(await bankStatus(user.id)), errors: r.errors });
+}
+
+async function handleBankRemove(req, res, user) {
+  let body;
+  try { body = await readBody(req); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  const ok = await plaid.removeItem(user.id, Number(body.id));
+  return ok ? json(res, 200, await bankStatus(user.id)) : json(res, 404, { error: "Not found" });
+}
+
+// Plaid tells us when new transactions are ready. Verified, then we pull them.
+async function handlePlaidWebhook(req, res) {
+  let raw = "";
+  for await (const chunk of req) { raw += chunk; if (raw.length > 1e5) return json(res, 413, {}); }
+  let ok = false;
+  try { ok = await plaid.verifyWebhook(raw, req.headers["plaid-verification"]); } catch (e) { console.error("webhook verify:", e.message); }
+  if (!ok) return json(res, 401, { error: "unverified" });
+  const body = JSON.parse(raw);
+  const { rows: [item] } = await pool.query("SELECT id FROM plaid_items WHERE item_id = $1", [String(body.item_id || "")]);
+  if (item) {
+    if (body.webhook_type === "TRANSACTIONS" && body.webhook_code === "SYNC_UPDATES_AVAILABLE") plaid.syncItem(item.id).catch(e => console.error("webhook sync:", e.message));
+    if (body.webhook_type === "ITEM" && ["ERROR", "PENDING_EXPIRATION", "PENDING_DISCONNECT"].includes(body.webhook_code)) {
+      await pool.query("UPDATE plaid_items SET status = 'needs_relink' WHERE id = $1", [item.id]);
+    }
+  }
+  return json(res, 200, { ok: true });
+}
+
+/* ---------- The real-data experience ---------- */
+async function handleLiveProfile(req, res, user) { return json(res, 200, await live.profile(user)); }
+
+async function handleLivePlan(req, res, user) {
+  let body;
+  try { body = await readBody(req, 200000); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  const living = Array.isArray(body.living) ? body.living.slice(0, 60).map(l => ({ key: String(l.key || "").slice(0, 40), name: String(l.name || "").slice(0, 80), amt: Number(l.amt) || 0, type: ["fixed", "need", "want"].includes(l.type) ? l.type : "want" })) : [];
+  const ans = body.ans && typeof body.ans === "object" ? body.ans : {};
+  const pay = Number(body.pay) > 0 && Number(body.pay) < 100000 ? Number(body.pay) : null;
+  return json(res, 200, await live.plan(user, { living, ans, pay }));
+}
+
+async function handleLiveState(req, res, user) {
+  let body;
+  try { body = await readBody(req, 300000); } catch { return json(res, 400, { error: "Invalid JSON" }); }
+  if (!body || typeof body.state !== "object" || Array.isArray(body.state)) return json(res, 400, { error: "Body must be { state: {...} }" });
+  await live.saveState(user.id, body.state);
+  return json(res, 200, { ok: true });
+}
+
 /* ---------- Admin: employers and team codes ---------- */
 async function adminOnly(req, res, user, fn) {
   if (!user.is_admin) return json(res, 403, { error: "Admins only" });
@@ -172,12 +257,11 @@ function handleDemoHr(req, res) {
 }
 
 /* ---------- Financial brain: custom plan builder ---------- */
-// The platform can execute a fixed set of move types (open account, transfer, check,
-// allocation). The brain personalizes: which moves fit this person, in what words, and
-// up to two custom advice moves. The machinery (allocations, ROI, simulation) is unchanged.
+// The money engine decides the moves and every number in them. The brain personalizes the
+// words (and can add up to two advice-only moves); it never changes the numbers.
 const PLAN_STYLE = STYLE + `
 
-You are now DESIGNING this person's plan, not chatting. You get their authoritative HR record, their confirmed answers from the conversation, their agreed money numbers, and the candidate plan moves the platform can execute. Personalize the plan: keep the machinery, make every word and every choice fit this exact person. Ground every line in their real numbers. Never invent accounts, employers, rates, or numbers that are not in the data. Say lines are spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500".`;
+You are now DESIGNING this person's plan, not chatting. Keep every dollar amount, percent and date exactly as given in the candidate moves. You get their authoritative HR record (if any), their confirmed answers from the conversation, their agreed money numbers, and the candidate plan moves the platform can execute. Personalize the plan: keep the machinery, make every word and every choice fit this exact person. Ground every line in their real numbers. Never invent accounts, employers, rates, or numbers that are not in the data. Say lines are spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500".`;
 
 async function handlePlan(req, res, user) {
   if (!ai.enabled()) return json(res, 503, {});
@@ -269,6 +353,15 @@ const ROUTES = [
   ["POST", /^\/api\/admin\/employers$/, handleAdminEmployer, true],
   ["POST", /^\/api\/admin\/codes$/, handleAdminCode, true],
   ["GET", /^\/api\/demo\/hr$/, handleDemoHr, false],
+  ["GET", /^\/api\/bank$/, handleBank, true],
+  ["POST", /^\/api\/bank\/link-token$/, handleLinkToken, true],
+  ["POST", /^\/api\/bank\/exchange$/, handleExchange, true],
+  ["POST", /^\/api\/bank\/sync$/, handleBankSync, true],
+  ["POST", /^\/api\/bank\/remove$/, handleBankRemove, true],
+  ["POST", /^\/api\/plaid\/webhook$/, handlePlaidWebhook, false],
+  ["GET", /^\/api\/live\/profile$/, handleLiveProfile, true],
+  ["POST", /^\/api\/live\/plan$/, handleLivePlan, true],
+  ["POST", /^\/api\/live\/state$/, handleLiveState, true],
   ["POST", /^\/api\/hris\/feed$/, handleFeed, false],
   ["POST", /^\/api\/jeff$/, handleJeff, true],
   ["POST", /^\/api\/plan$/, handlePlan, true]

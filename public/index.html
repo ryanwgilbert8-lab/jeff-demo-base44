@@ -412,7 +412,7 @@ const r100 = n => Math.round(n / 100) * 100;
 const r10 = n => Math.round(n / 10) * 10;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const FV10 = 13.816;
-const PPM = 26 / 12;                 // paychecks per month
+let PPM = 26 / 12;                   // paychecks per month (real users: set from their pay schedule)
 const perPay = m => m / PPM;         // monthly → per paycheck
 const monthly = pp => pp * PPM;      // per paycheck → monthly
 const txt = v => typeof v === "function" ? v() : v;
@@ -860,7 +860,7 @@ function profileText(){
   const ans = d.questions.map(q => S.ans[q.id] ? `Q: ${q.q} A: ${S.ans[q.id]}` : "").filter(Boolean).join("\n");
   const plan = S.moves.map((m,i) => `${i+1}. ${m.title}: ${S.dec[m.id] && S.dec[m.id].detail ? S.dec[m.id].detail : txt(m.detail)} [${S.dec[m.id] ? S.dec[m.id].status : "not yet discussed"}]`).join("\n");
   const goals = S.goals.map(g => `${g.name}: ${fmt(g.amount)} by ${g.by}, ${fmt(g.pp)} per paycheck`).join("; ");
-  return `Name: ${d.first}\nWork: ${d.job}\nTake-home: ${fmt(S.pay || d.pay)} every two weeks (${fmt(takeHomeM())}/mo)${S.side ? `, plus about ${fmt(S.side)} a month in other income` : ""}\nAccounts:\n${accts}\nMonthly living costs agreed with Jeff: ${liv} (total ${fmt(livingM())}/mo)\nAnswers:\n${ans || "none"}\nPlan:\n${plan || "not built yet"}\nPaycheck split now: ${S.moves.length ? splitNow().map(x => x[0] + " " + fmt(x[1])).join(", ") : "n/a"}\nGoals: ${goals || "none"}`;
+  return `Name: ${d.first}\nWork: ${d.job}\nTake-home: ${fmt(S.pay || d.pay)} ${freqWords()} (${fmt(takeHomeM())}/mo)${S.side ? `, plus about ${fmt(S.side)} a month in other income` : ""}\nAccounts:\n${accts}\nMonthly living costs agreed with Jeff: ${liv} (total ${fmt(livingM())}/mo)\nAnswers:\n${ans || "none"}\nPlan:\n${plan || "not built yet"}\nPaycheck split now: ${S.moves.length ? splitNow().map(x => x[0] + " " + fmt(x[1])).join(", ") : "n/a"}\nGoals: ${goals || "none"}`;
 }
 async function llm(task, schema){
   const s = await Promise.race([getSampler(), sleep(3500).then(() => null)]);
@@ -992,7 +992,7 @@ function acctRow(a){
 function incomeHTML(){
   const d = p(); const pay = S.pay || d.pay; const conf = S.ans.income;
   return `<div class="group" id="incomeG"><h4><span>Income</span><span class="num">${fmt(pay*PPM)}/mo</span></h4>
-    <div class="incomerow"><div class="nm"><b>${d.payer} paycheck</b><span>Every other Friday into checking${conf ? " · confirmed" : " · from your employer's payroll feed"}</span></div><div class="bal num">${fmt(pay)}</div></div>
+    <div class="incomerow"><div class="nm"><b>${d.payer} paycheck</b><span>${LIVE && PROFILE ? cap(PROFILE.frequencyWords) + " into " + esc(PROFILE.paysTo) : "Every other Friday into checking"}${conf ? " · confirmed" : LIVE ? " · from your deposits" : " · from your employer's payroll feed"}</span></div><div class="bal num">${fmt(pay)}</div></div>
     ${S.side ? `<div class="incomerow"><div class="nm"><b>Other income</b><span>You told Jeff about this</span></div><div class="bal num">${fmt(S.side)}/mo</div></div>` : ""}</div>`;
 }
 function groups(){
@@ -1030,7 +1030,7 @@ async function incomeDiff(){
 async function setPay(n){
   if (!n || n < 200){ await speak("Sorry, I didn't catch a number. Roughly how much hits your account each paycheck?"); return; }
   S.pay = Math.round(n); S.ans.income = `Corrected to ${fmt(S.pay)} per paycheck`; S.pending = null; repaintIncome();
-  if (!(await speak(`Updated. ${fmt(S.pay)} every two weeks, about ${fmt(S.pay*PPM)} a month. If it ever changes, I'll notice.`))) return;
+  if (!(await speak(`Updated. ${fmt(S.pay)} ${freqWords()}, about ${fmt(S.pay*PPM)} a month. If it ever changes, I'll notice.`))) return;
   S.q = 0; askQ();
 }
 async function incomeSide(){
@@ -1107,7 +1107,7 @@ function livingHTML(){
   }).join("");
   return `<div class="pad">
     <h1 class="title">What it costs you to live</h1>
-    <p class="sub">From your last six months. Jeff plans around this first, then works with what's left.</p>
+    <p class="sub">From your last ${LIVE ? "few" : "six"} months. Jeff plans around this first, then works with what's left.</p>
     ${cardTot ? `<div class="cardbox">Your card bills run about <b>${fmt(r10(cardTot))} a month</b>. That's not one expense. Jeff looked inside: mostly ${cardTop}, plus groceries and gas.</div>` : ""}
     ${Object.keys(names).map(t => `<div class="group"><h4><span>${names[t]}</span><span class="num">${fmt(sumType(t))}/mo</span></h4>${rows(t)}</div>`).join("")}
   </div>
@@ -1119,7 +1119,7 @@ async function living(){
   S.screen = "living"; S.living = d.living.map(c => ({...c, orig:c.amt, status:null})); S.focus = null; S.ti = 0;
   show(livingHTML(), true); S.handler = livingFree;
   const L = livingM(), M = takeHomeM();
-  let line = `Next, the most important part. Before I touch anything, I need to know what it actually costs you to live. From your last six months, it's about ${fmt(L)} a month.`;
+  let line = `Next, the most important part. Before I touch anything, I need to know what it actually costs you to live. From your last ${LIVE ? "few" : "six"} months, it's about ${fmt(L)} a month.`;
   line += L > M ? ` You bring home ${fmt(M)}, so you're spending about ${fmt(L - M)} more than you make. That's why the cards keep growing.` : ` You bring home ${fmt(M)}, which leaves about ${fmt(M - L)} a month to work with.`;
   if (livingList().some(c => c.trim)) line += " Let's go through the flexible stuff. You can say yes, meet me halfway, or tell me it's off limits.";
   if (!(await speak(line))) return;
@@ -1141,7 +1141,7 @@ async function applyTrim(kind, reply){
   if (kind === "protect" && c.trim.harm && !c.pushed){
     c.pushed = true;
     const yearly = (c.orig - c.trim.to) * 12;
-    if (!(await speak(reply || `Totally your call, and I'll respect it. Just so you see it: keeping ${c.name.toLowerCase()} at ${fmt(c.orig)} costs you about ${fmt(yearly)} a year, and most of that is going on a card at almost 30 percent. Still want to protect it?`))) return;
+    if (!(await speak(reply || `Totally your call, and I'll respect it. Just so you see it: keeping ${c.name.toLowerCase()} at ${fmt(c.orig)} costs you about ${fmt(yearly)} a year, and most of that is going on a card at ${aprWords()}. Still want to protect it?`))) return;
     return setChips([{label:"Fine, trim it", fn:() => applyTrim("trim")},{label:"Meet me halfway", fn:() => applyTrim("half")},{label:"Still protect it", fn:() => applyTrim("protect")}]);
   }
   if (kind === "trim"){ c.amt = c.trim.to; c.status = "trimmed"; }
@@ -1272,7 +1272,7 @@ async function presentMove(){
 function moveChips(){
   const m = S.moves[S.mi]; if (!m) return;
   if (m.kind === "new") setChips([{label:"Yes, open it", fn:() => decide("approve")},{label:"No thanks", fn:() => decide("decline")},{label:"Why?", fn:() => why()}]);
-  else if (m.kind === "check") setChips([{label:"Yes, check for me", fn:() => decide("approve")},{label:"Not now", fn:() => decide("decline")},{label:"Why?", fn:() => why()}]);
+  else if (m.kind === "check") setChips([{label:LIVE ? "Yes, show me how" : "Yes, check for me", fn:() => decide("approve")},{label:"Not now", fn:() => decide("decline")},{label:"Why?", fn:() => why()}]);
   else { const c = [{label:"Sounds good", fn:() => decide("approve")},{label:"Why?", fn:() => why()}]; if (m.alt) c.push({label:"Change it", fn:() => change()}); if (m.id !== "safe") c.push({label:"Skip", fn:() => decide("decline")}); setChips(c); }
 }
 async function why(){ const m = S.moves[S.mi]; if (!(await speak(m.why))) return; moveChips(); }
@@ -1405,7 +1405,9 @@ async function home(silent){
   $("#worthBtn").onclick = () => worthFromHome();
   S.handler = homeFree; clearChips(); $("#you").textContent = "";
   if (silent){ $("#said").textContent = "I'm running your plan. Tell me about anything coming up, or ask me anything."; return; }
-  if (!(await speak(`You're all set, ${d.first}. I've got it from here. If anything's coming up, a trip, a wedding, anything, just tell me and I'll fit it in.`))) return;
+  if (!(await speak(d.live
+    ? `You're all set, ${d.first}. Set up those transfers in your bank, and I'll keep watch from here. If anything's coming up, a trip, a wedding, anything, just tell me and I'll fit it in.`
+    : `You're all set, ${d.first}. I've got it from here. If anything's coming up, a trip, a wedding, anything, just tell me and I'll fit it in.`))) return;
   homeChips();
 }
 async function worthFromHome(){
@@ -1415,7 +1417,8 @@ async function worthFromHome(){
 }
 const GOAL_DEMO = {maya:"I have a baptism in Florida in three months, the flight's about $400", jordan:"I want to go to Austin City Limits in four months, tickets and travel are about $900", priya:"My sister's wedding is in Italy in six months, I need about $2,500"};
 function homeChips(){
-  const c = [{label:"Plan for something coming up", say:GOAL_DEMO[S.key], fn:() => homeFree(GOAL_DEMO[S.key], false, true)},{label:"Show my spending", fn:() => homeFree("Show my spending")}];
+  const c = [LIVE ? {label:"Plan for something coming up", fn:async () => { await speak("Tell me what's coming up and roughly what it costs. A trip, a wedding, a move, anything."); }}
+                  : {label:"Plan for something coming up", say:GOAL_DEMO[S.key], fn:() => homeFree(GOAL_DEMO[S.key], false, true)},{label:"Show my spending", fn:() => homeFree("Show my spending")}];
   if (p().hasCards) c.push({label:"When am I debt free?", fn:() => homeFree("When am I debt free?")});
   else c.push({label:"Where does my paycheck go?", fn:() => homeFree("Where does my paycheck go?")});
   setChips(c);
@@ -1456,7 +1459,7 @@ function chartFor(kind){
   const d = p();
   if (kind === "spending") return barChart(livingList().filter(c => c.type !== "fixed").map(c => [c.name, c.amt]), "Your living money, per month");
   if (kind === "paycheck") return `<div class="chart"><h5>Where each paycheck goes</h5>${splitHTML(splitNow())}</div>`;
-  if (kind === "debt" && d.hasCards) return debtChart();
+  if (kind === "debt" && d.hasCards && !d.live) return debtChart();
   if (kind === "balances") return barChart(d.accounts.filter(a => a.bal > 0).map(a => [a.name, a.bal]), "Account balances");
   if (kind === "worth") return roiChart(roi().years);
   if (kind === "creep"){ const c = livingList().find(x => x.name === d.creep.cat); return colChart(d.creep.months, d.creep.cat + ", last 4 months", c ? c.amt : null); }
@@ -1478,10 +1481,12 @@ async function homeFree(text, onWorth, forceGoal){
     let chart = null, reply;
     if (/spend|spent|habit|categor/i.test(text)){ chart = "spending"; const top = livingList().filter(c => c.type === "want").sort((a,b) => b.amt - a.amt)[0]; reply = `Here's your living money. ${top.name} is your biggest flexible category at ${fmt(top.amt)}, and that's the number we agreed on.`; }
     else if (/paycheck|split|where.*(money|go)|route/i.test(text)){ chart = "paycheck"; reply = `Every ${fmt(payNow())} paycheck gets split the second it lands. Bills first, your living money protected, the rest to work.`; }
-    else if (/debt|card|loan|owe/i.test(text)){ if (d.hasCards){ chart = "debt"; const s = cardSim(); reply = `On this plan your cards are gone by ${monthLabel(s.free)}. Paying minimums, you'd still owe about ${fmt(r100(BASE.series[s.free]))} then.`; } else reply = "You don't owe anything, which is the point. Let's keep it that way."; }
+    else if (/debt|card|loan|owe/i.test(text)){ if (d.live && d.hasCards){ const m = S.moves.find(x => x.id === "cards"); reply = m ? txt(m.detail) : "Your plan pays high-interest debt first, highest rate first."; } else if (d.hasCards){ chart = "debt"; const s = cardSim(); reply = `On this plan your cards are gone by ${monthLabel(s.free)}. Paying minimums, you'd still owe about ${fmt(r100(BASE.series[s.free]))} then.`; } else reply = "You don't owe anything, which is the point. Let's keep it that way."; }
     else if (/worth|save|saving|roi|making|value/i.test(text)){ chart = "worth"; reply = `Your plan's on track to be worth about ${fmt(r100(roi().total))} over ten years.`; }
     else if (/balance|account|net worth|how much/i.test(text)){ chart = "balances"; reply = "Here's everything you've got, as of this morning."; }
+    else if (LIVE && /change|update|instead|move|increase|decrease/i.test(text)){ reply = "Tell me exactly what you'd change, and I'll walk through that part of the plan with you again."; }
     else if (/change|update|instead|move|increase|decrease/i.test(text)){ reply = "Done. I've updated the plan and I'll route that way from your next paycheck."; }
+    else if (LIVE) reply = "I couldn't answer that one just now. Ask me about your spending, your paycheck, your debt, or something coming up.";
     else reply = "Good question. In the live product I'd answer that from your real data. Try telling me about something coming up, or ask about your spending.";
     r = {reply, chart};
   }
@@ -1750,7 +1755,7 @@ const INIT_BUCKETS = {maya:{sav:{Cushion:310}}, jordan:{sav:{"Emergency fund":21
 const RATES = {hysa:0.041, sav:0.0001};
 function initAccts(){
   const d = p();
-  S.accts = d.accounts.map(a => { const id = (ID_RULES.find(r => r[0].test(a.name)) || [0, a.name])[1]; return {...a, id, buckets:{...((INIT_BUCKETS[S.key] || {})[id] || {})}}; });
+  S.accts = d.accounts.map(a => { const id = a.id || (ID_RULES.find(r => r[0].test(a.name)) || [0, a.name])[1]; return {...a, id, buckets:{...((INIT_BUCKETS[S.key] || {})[id] || {})}}; });
   if (S.key === "priya") RATES.sav = 0.038; else RATES.sav = 0.0001;
   S.ledger = {earned:0, avoided:0, free:0, found:0};
   S.moneyLog = [];
@@ -1822,14 +1827,14 @@ function planHTML(){
     let cls = i === S.mi && !dc ? "current" : "", tag = "";
     if (dc){
       cls = dc.status === "skipped" ? "declined" : (dc.status === "adjusted" ? "adjusted" : "approved");
-      tag = dc.status === "skipped" ? "Skipped" : dc.status === "adjusted" ? "Adjusted" : (m.kind === "new" ? "Opened" : m.kind === "check" ? "Jeff is checking" : m.transfer ? "Moved, with your okay" : "Agreed");
+      tag = dc.status === "skipped" ? "Skipped" : dc.status === "adjusted" ? "Adjusted" : (m.kind === "new" ? "Opened" : m.kind === "check" ? (LIVE ? "You'll do this" : "Jeff is checking") : m.transfer ? "Moved, with your okay" : "Agreed");
     }
     const detail = dc && dc.detail ? dc.detail : txt(m.detail);
     const where = m.alloc && m.alloc.to && active(m) ? `<span class="rec">Each payday: ${fmt(allocAmt(m.id))} to ${esc(resolveTo(m.alloc.to).label)}</span>` : "";
     return `<li class="move ${cls}"><b>${m.title}</b><span class="d">${esc(detail)}</span>${dc && dc.rec ? `<span class="rec">${dc.rec}</span>` : ""}${where}${tag ? `<span class="tag">${tag}</span>` : ""}</li>`;
   }).join("");
   const done = S.mi >= ms.length;
-  const rts = done ? `<div class="group"><h4><span>Every payday, with your okay</span></h4>${routes().map(r => `<div class="lrow"><div class="nm">${esc(r.label)}<small>${esc(r.text)}</small></div></div>`).join("")}<div class="lrow"><div class="nm">Stays in checking<small>${fmt(billsPP())} for bills and ${fmt(spendPP())} for you to live on</small></div></div></div>` : "";
+  const rts = done ? `<div class="group"><h4><span>${LIVE ? "Set up in your bank, every payday" : "Every payday, with your okay"}</span></h4>${routes().map(r => `<div class="lrow"><div class="nm">${esc(r.label)}<small>${esc(r.text)}</small></div></div>`).join("")}<div class="lrow"><div class="nm">Stays in checking<small>${fmt(billsPP())} for bills and ${fmt(spendPP())} for you to live on</small></div></div></div>` : "";
   return `<div class="pad"><h1 class="title">Your plan</h1>
     <p class="sub">You live on ${fmt(livingM())} a month. After that and your bills, Jeff has ${fmt(pool)} a paycheck to work with. ${agreed} of ${ms.length} agreed.</p>
     <div class="progress">${prog}</div><ol class="moves">${items}</ol>${rts}</div>
@@ -1855,7 +1860,7 @@ async function authorize(auto){
 async function decide(kind, detail, reply){
   const m = S.moves[S.mi];
   if (kind === "approve"){
-    S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : null};
+    S.dec[m.id] = {status:"approved", rec:(m.kind === "new" || m.kind === "check") ? m.rec : (m.todo || null)};
     applyApproved(m); paintPlan();
     if (!(await speak(reply || (m.kind === "new" ? m.yes : m.kind === "check" ? m.yesLine : m.transfer ? `Done. ${transferText(m.transfer).replace(/^Moves/, "Moved")}` : OKS[S.mi % OKS.length])))) return;
   } else if (kind === "decline"){
@@ -1883,7 +1888,7 @@ function moneyHTML(){
 function ledgerHTML(){
   const L = S.ledger || {earned:0,avoided:0,free:0,found:0}; const t = ledgerTotal();
   const parts = [["interest earned", L.earned],["interest avoided", L.avoided],["employer match", L.free],["found", L.found]].filter(x => x[1] > 0.5).map(x => `${fmt(x[1])} ${x[0]}`).join(", ");
-  return `<button class="worth" id="worthBtn"><div><span>Since Oct 1, Jeff has made and saved you</span><b class="num">${fmt(t)}</b><span>${parts || "Day one. Jeff starts counting today."}</span></div><em>On track for ${fmt(r100(roi().total))}<br>over 10 years</em></button>`;
+  return `<button class="worth" id="worthBtn"><div><span>Since ${LIVE ? "you joined" : "Oct 1"}, Jeff has made and saved you</span><b class="num">${fmt(t)}</b><span>${parts || "Day one. Jeff starts counting today."}</span></div><em>On track for ${fmt(r100(roi().total))}<br>over 10 years</em></button>`;
 }
 function homeHTML(){
   const d = p();
@@ -1895,7 +1900,7 @@ function homeHTML(){
     <section class="hsec"><h3>Your money, and where it is</h3><div id="moneyBox">${moneyHTML()}</div></section>
     <section class="hsec"><h3>Coming up</h3><ul class="goals" id="goals">${goalsHTML()}</ul></section>
     <section class="hsec"><h3 id="foundH">${foundHead()}</h3><ul class="found" id="found">${foundHTML()}</ul></section>
-    <section class="hsec"><h3>Every payday, ${S.autoRun === false ? "after you approve" : "with your okay"}</h3><ul class="handling" id="routesBox">${rts}</ul></section>
+    <section class="hsec"><h3>${LIVE ? "Set up in your bank, every payday" : `Every payday, ${S.autoRun === false ? "after you approve" : "with your okay"}`}</h3><ul class="handling" id="routesBox">${rts}</ul></section>
     <section class="hsec"><h3 id="splitH">Your next ${fmt(payNow())} paycheck, already split</h3><div id="splitBox">${splitHTML(splitNow())}</div></section>
     <section class="hsec"><h3>Recent moves</h3><ul class="activity" id="activity">${(S.moneyLog || []).map(x => `<li><time>${x.date}</time>${esc(x.text)}</li>`).join("")}<li><time>Oct 1</time>Plan started. Nothing moves without your okay.</li></ul></section>
     <section class="hsec thread" id="thread"></section>
@@ -1938,8 +1943,11 @@ async function commitGoal(g, from, want){
   S.goals.push(goal);
   const dest = resolveTo("savings:" + goal.name).label;
   repaintMoney(); addActivity(`New goal: ${goal.name}, ${fmt(goal.amount)} by ${goal.by}`);
-  addThread(`<div class="msg jf">Added to your plan: ${esc(goal.name)}. Each payday, ${fmt(goal.pp)} moves from ${esc(acctName(acct("chk")))} into ${esc(dest)}. Ready by ${goal.by}.</div>`);
-  if (!(await speak(`Done. Every payday, ${fmt(goal.pp)} moves from your checking into ${dest}. It's your own account, just out of sight, so it never shows up as spending money. When it's time to book, tell me and I'll move it back to checking.`))) return;
+  addThread(`<div class="msg jf">Added to your plan: ${esc(goal.name)}. Each payday, ${fmt(goal.pp)} ${LIVE ? "should move" : "moves"} from ${esc(acctName(acct("chk")))} into ${esc(dest)}. Ready by ${goal.by}.</div>`);
+  if (!(await speak(LIVE
+    ? `Done. Set up ${fmt(goal.pp)} every payday from your checking into ${dest}. Out of sight, so it never looks like spending money. I'll keep track of how close you are.`
+    : `Done. Every payday, ${fmt(goal.pp)} moves from your checking into ${dest}. It's your own account, just out of sight, so it never shows up as spending money. When it's time to book, tell me and I'll move it back to checking.`))) return;
+  if (LIVE) saveLiveState();
   S.handler = homeFree; homeChips();
 }
 async function payday(){
@@ -1998,7 +2006,7 @@ let hostAI = null;
 if (!(window.claude && window.claude.use) && typeof fetch === "function") fetch("/api/health").then(r => r.ok ? r.json() : null).then(j => { hostAI = !!(j && j.ai); liveAI = hostAI; paintAI(); }).catch(() => {});
 async function llm(task, schema){
   const recent = S.history.slice(-8).map(h => `${h.who}: ${h.text}`).join("\n");
-  const prompt = `${STYLE}\n\nPERSON'S DATA\n${profileText()}\n\nRECENT CONVERSATION\n${recent || "(none)"}\n\nTASK\n${task}\n\nReturn only JSON, no code fences, matching: ${schema}`;
+  const prompt = `${LIVE ? LIVE_STYLE : STYLE}\n\nPERSON'S DATA\n${profileText()}\n\nRECENT CONVERSATION\n${recent || "(none)"}\n\nTASK\n${task}\n\nReturn only JSON, no code fences, matching: ${schema}`;
   if (hostAI){
     try { const r = await fetch("/api/jeff", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({prompt})}); if (!r.ok) return null; const j = await r.json(); return j && Object.keys(j).length ? j : null; } catch(e){ return null; }
   }
@@ -2058,6 +2066,13 @@ function paintTopbar(){
 async function enterLive(me){
   ME = me; USER = me.user;
   hideAuth(); paintTopbar(); paintAI();
+  try {
+    const bank = await fetch("/api/bank").then(r => r.ok ? r.json() : null);
+    if (bank && bank.accounts.length){
+      await loadProfile();
+      if (PROFILE.state && PROFILE.state.plan){ resetPersona(); S.key = "live"; resumeLive(); await home(true); $("#said").textContent = `Welcome back, ${PROFILE.first}. Ask me anything, or tell me what's coming up.`; homeChips(); return; }
+    }
+  } catch(e){}
   liveWelcome();
 }
 async function bootLive(){
@@ -2127,14 +2142,204 @@ function liveJoin(){
   };
 }
 
-// Step 2 replaces this with a real bank connection.
-function liveConnect(){
-  S.screen = "connect";
+/* ---------- Real accounts drive the same screens as the demo ---------- */
+let PROFILE = null, LIVEPLAN = null;
+const FREQ_PPM = {weekly:52/12, biweekly:26/12, semimonthly:2, monthly:1};
+const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+function freqWords(){ return LIVE && PROFILE ? PROFILE.frequencyWords : "every two weeks"; }
+function aprWords(){
+  if (!LIVE) return "almost 30 percent";
+  const top = Math.max(0, ...(PROFILE?.accounts || []).filter(a => a.type === "credit" && a.apr).map(a => a.apr));
+  return top ? `${Math.round(top * 100)} percent` : "a high interest rate";
+}
+const LIVE_STYLE = `You are Jeff, a money coach that comes with someone's job as a benefit from their employer. Think of the family member everyone wishes they had managing their money: warm, direct, protective of their future, and willing to push back on a bad idea once, kindly, before respecting their call. You never lecture. You can see their linked accounts (read-only) and the plan you agreed together. You cannot move money, open accounts or change payroll yourself: when something needs doing, say exactly what to set up and where. Your reply is spoken aloud: 1 to 3 short sentences, no lists, no markdown, no emoji. Write money like "$4,500". Only use facts in the person's data below. Never invent accounts, balances or rates.`;
+
+function buildLivePersona(pr){
+  PPM = FREQ_PPM[pr.frequency] || 26/12;
+  P.live = {
+    live:true, first:pr.first, label:pr.first, blurb:"", job:pr.payer ? `Works at ${pr.payer}` : "",
+    salary:pr.salary, matchPct:pr.matchPct, pay:pr.pay, payer:pr.payer || "your employer",
+    banks:pr.banks, accounts:pr.accounts, living:pr.living, lead:pr.lead, questions:pr.questions, hasCards:pr.hasCards,
+    timeline:[], pull:null, creep:null,
+    moves(){ return [...(LIVEPLAN ? LIVEPLAN.moves.map(m => ({...m})) : []), safeMove("Budgets fail when the balance says one thing and the plan says another. This is the number you can actually spend.")]; }
+  };
+  S.key = "live";
+}
+async function loadProfile(){
+  const r = await fetch("/api/live/profile");
+  if (!r.ok) throw new Error("profile " + r.status);
+  PROFILE = await r.json();
+  buildLivePersona(PROFILE);
+  return PROFILE;
+}
+async function saveLiveState(){
+  const state = { ans:S.ans, pay:S.pay, side:S.side, dec:S.dec, goals:S.goals, autoRun:S.autoRun, plan:LIVEPLAN,
+    living:livingList().map(c => ({key:c.key, name:c.name, amt:c.amt, orig:c.orig, type:c.type, status:c.status || null, card:!!c.card})) };
+  try {
+    await fetch("/api/live/state", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({state})});
+    const pr = await fetch("/api/live/profile").then(r => r.ok ? r.json() : null);
+    if (pr){ PROFILE.safe = pr.safe; PROFILE.state = pr.state; }
+  } catch(e){}
+}
+function todayLabel(){ return new Date().toLocaleDateString("en-US", {month:"short", day:"numeric"}); }
+
+/* Income: from their real deposits, in their real pay rhythm */
+const _live_askIncome = askIncome;
+askIncome = async function(){
+  if (!p().live) return _live_askIncome();
+  const d = p(), g = $("#incomeG");
+  if (g){ g.classList.remove("hl"); void g.offsetWidth; g.classList.add("hl"); }
+  if (!d.pay){
+    S.pending = "payAmt";
+    if (!(await speak("First, your income. I couldn't spot your paychecks in these accounts yet. Roughly how much lands each payday?"))) return;
+    return setChips([1500, 2000, 2500, 3000].map(v => ({label:fmt(v), fn:() => setPay(v)})));
+  }
+  S.pending = "income";
+  if (!(await speak(`First, your income. I see about ${fmt(d.pay)} from ${d.payer} landing ${PROFILE.frequencyWords} into ${PROFILE.paysTo}. That's about ${fmt(d.pay*PPM)} a month take-home on your base pay. Is that right?`))) return;
+  setChips([{label:"Yes, that's right", fn:() => incomeYes()},{label:"It's different", fn:() => incomeDiff()},{label:"I have other income too", fn:() => incomeSide()}]);
+};
+const _live_incomeDiff = incomeDiff;
+incomeDiff = async function(){
+  if (!p().live || p().pay) return _live_incomeDiff();
+  S.pending = "payAmt";
+  if (!(await speak("What's your usual take-home per paycheck? A rough number is fine."))) return;
+  setChips([1500, 2000, 2500, 3000].map(v => ({label:fmt(v), fn:() => setPay(v)})));
+};
+
+/* Plan: the money engine on the server builds the moves from their real numbers */
+const _live_buildPlan = buildPlan;
+buildPlan = async function(){
+  if (!p().live) return _live_buildPlan();
+  if (!(await speak("Perfect. Give me a second. I'm building your plan around that number."))) return;
+  thinking();
+  const r = await fetch("/api/live/plan", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({living: livingList().map(c => ({key:c.key, name:c.name, amt:c.amt, type:c.type})), ans:S.ans, pay:S.pay})}).catch(() => null);
+  LIVEPLAN = r && r.ok ? await r.json() : {moves:[]};
+  S.aiPlan = null;
+  plan();
+};
+
+/* Where money goes, described as what to set up in their own bank */
+const _live_resolveTo = resolveTo;
+resolveTo = function(spec){
+  if (!p().live) return _live_resolveTo(spec);
+  if (!S.accts) initAccts();
+  if (spec === "cards"){
+    const c = S.accts.filter(a => (a.type === "credit" || a.type === "loan") && a.bal < -0.5 && (a.apr || 0) >= 0.08).sort((a, b) => (b.apr || 0) - (a.apr || 0))[0];
+    return {a:c, cards:true, label:c ? `your debt, ${acctName(c)} first` : "your debt"};
+  }
+  if (spec === "roth") return {a:null, label:"your Roth IRA"};
+  if (spec.startsWith("savings:")){ const a = savingsAcct(), b = spec.slice(8); return {a, bucket:b, label:a ? `${acctName(a)} (${b})` : `a savings account (${b})`}; }
+  return _live_resolveTo(spec);
+};
+// Jeff can't move money for real users, so nothing is simulated: balances stay what the bank says.
+const _live_applyApproved = applyApproved;
+applyApproved = function(m, silent){ if (!p().live) return _live_applyApproved(m, silent); };
+
+const _live_presentMove = presentMove;
+presentMove = async function(){
+  if (!p().live || S.moves[S.mi]) return _live_presentMove();
+  S.planning = false; paintPlan();
+  const rs = routes();
+  const line = rs.length
+    ? `That's the plan. One honest thing: I can see your accounts, but I can't move money yet. So here's what to set up in your bank: ${rs.length === 1 ? "one automatic transfer" : rs.length + " automatic transfers"} every payday, exactly as listed. Set them up once, and I'll check each payday that they happened.`
+    : "That's the plan.";
+  if (!(await speak(line))) return;
+  setChips([{label:"I'll set them up", fn:() => authorize(true)},{label:"Remind me each payday", fn:() => authorize(false)}]);
+};
+const _live_authorize = authorize;
+authorize = async function(auto){
+  if (!p().live) return _live_authorize(auto);
+  S.autoRun = auto; paintPlan(); saveLiveState();
+  if (!(await speak(auto ? "Perfect. I'll watch for those transfers and tell you if one doesn't happen. Now let me show you what this plan is worth." : "Got it. I'll remind you each payday. Now let me show you what this plan is worth."))) return;
+  worth();
+};
+
+const _live_home = home;
+home = async function(silent){
+  if (p().live){
+    S.date = todayLabel();
+    S.safe = PROFILE && PROFILE.safe != null ? PROFILE.safe : Math.round(spendPP() * 0.55);
+    if (S.autoRun == null) S.autoRun = true;
+  }
+  return _live_home(silent);
+};
+
+/* Picking up where they left off */
+function resumeLive(){
+  const st = PROFILE.state;
+  S.ans = st.ans || {}; S.pay = st.pay || null; S.side = st.side || 0; S.dec = st.dec || {}; S.goals = st.goals || []; S.autoRun = st.autoRun ?? true;
+  S.living = (st.living || []).map(c => ({...c, orig:c.orig ?? c.amt}));
+  LIVEPLAN = st.plan || {moves:[]};
+  S.moves = p().moves.call(p(), S.ans); S.mi = S.moves.length; S.planning = false;
+  initAccts();
+}
+
+/* ---------- Connect real accounts (Plaid, read-only) ---------- */
+function loadPlaid(){
+  if (window.Plaid) return Promise.resolve();
+  return new Promise((ok, fail) => { const t = document.createElement("script"); t.src = "https://cdn.plaid.com/link/v2/stable/link-initialize.js"; t.onload = ok; t.onerror = fail; document.head.appendChild(t); });
+}
+async function liveConnect(){
+  S.screen = "connect"; hush();
+  show(`<div class="pad"><h1 class="title">Connect your accounts</h1><p class="sub">Loading…</p></div>`);
+  const bank = await fetch("/api/bank").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!bank) return show(`<div class="pad"><h1 class="title">Connect your accounts</h1><p class="sub">We couldn't reach Jeff. Check your connection and try again.</p><button class="primary" id="back">Back</button></div>`), ($("#back").onclick = liveWelcome);
+  paintConnect(bank);
+  if (bank.accounts.length && !bank.transactions) waitForHistory();
+}
+function paintConnect(bank, note){
+  const byItem = bank.items.map(it => ({...it, n:bank.accounts.filter(a => a.itemId === it.id).length}));
+  const kinds = {checking:"Checking", savings:"Savings", credit:"Card", loan:"Loan", investment:"Investments", other:"Account"};
   show(`<div class="pad">
     <h1 class="title">Connect your accounts</h1>
-    <p class="sub">Real bank connections are being switched on next. Check back soon.</p>
-    <button class="primary" id="back">Back</button></div>`);
-  $("#back").onclick = liveWelcome;
+    <p class="sub">Every checking, savings, card and loan account, including small credit unions. The more Jeff sees, the better the plan. Read-only: Jeff can never move money.</p>
+    ${!bank.enabled ? `<p class="cardbox">Bank connections aren't switched on yet.${ME.user.isAdmin ? " Add PLAID_CLIENT_ID and PLAID_SECRET in Base44's secrets to turn them on." : " Check back soon."}</p>` : ""}
+    <ul class="banks">${byItem.map(it => `<li class="bank">${logo(it.institution || "Bank")}<div class="nm"><b>${esc(it.institution || "Your bank")}</b><span>${it.status === "needs_relink" ? "Needs you to sign in again" : bank.accounts.filter(a => a.itemId === it.id).map(a => kinds[a.kind] + (a.mask ? " ··" + a.mask : "")).join(", ")}</span></div>
+      <button class="cbtn done" disabled>${it.n === 1 ? "1 account" : it.n + " accounts"}</button></li>`).join("")}</ul>
+    ${bank.enabled ? `<button class="primary" id="add" style="margin-top:16px;${bank.items.length ? "background:transparent;color:var(--ink);border:1px solid var(--line)" : ""}">${bank.items.length ? "Add another bank or card" : "Connect a bank or card"}</button>` : ""}
+    <p class="more" id="note">${note || (bank.accounts.length ? (bank.transactions ? `${bank.transactions} transactions pulled${bank.since ? " since " + new Date(bank.since).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : ""}.` : "Pulling your history. This can take a minute.") : "Secured by Plaid. Jeff never sees your bank password.")}</p>
+  </div>
+  <div class="footer"><button class="primary" id="cont" ${bank.accounts.length && bank.transactions ? "" : "disabled"}>See where I stand</button></div>`);
+  const add = $("#add"); if (add) add.onclick = () => openLink(add);
+  $("#cont").onclick = async () => {
+    $("#cont").disabled = true; $("#cont").textContent = "Reading your accounts…";
+    try { await loadProfile(); } catch(e){ $("#cont").disabled = false; $("#cont").textContent = "See where I stand"; $("#note").textContent = "Couldn't read your accounts. Try again."; return; }
+    resetPersona(); S.key = "live"; state();
+  };
+}
+async function openLink(btn){
+  btn.disabled = true;
+  try {
+    const [r] = await Promise.all([fetch("/api/bank/link-token", {method:"POST"}), loadPlaid()]);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    Plaid.create({
+      token: j.linkToken,
+      onSuccess: async (publicToken, meta) => {
+        show(`<div class="pad"><h1 class="title">Connecting…</h1><p class="sub">Pulling your accounts from ${esc(meta?.institution?.name || "your bank")}.</p></div>`);
+        const x = await fetch("/api/bank/exchange", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({publicToken, institution: meta?.institution?.name || null})});
+        const bank = await x.json().catch(() => null);
+        if (!x.ok || !bank || !bank.accounts) return liveConnect().then(() => { const n = $("#note"); if (n) n.textContent = (bank && bank.error) || "That didn't connect. Try again."; });
+        paintConnect(bank);
+        if (!bank.transactions) waitForHistory();
+      },
+      onExit: () => { btn.disabled = false; }
+    }).open();
+  } catch(e){
+    btn.disabled = false;
+    const n = $("#note"); if (n) n.textContent = e.message || "Couldn't start the bank connection. Try again.";
+  }
+}
+// Banks can take a minute to send history after linking. Check a few times.
+async function waitForHistory(){
+  for (let i = 0; i < 12 && S.screen === "connect"; i++){
+    await sleep(5000);
+    const bank = await fetch("/api/bank/sync", {method:"POST"}).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (S.screen !== "connect") return;
+    if (bank && bank.transactions){ paintConnect(bank); return; }
+  }
+  if (S.screen === "connect"){ const n = $("#note"); if (n) n.textContent = "Your bank is still sending your history. Come back in a few minutes."; }
 }
 
 /* ---------- Admin: companies and team codes ---------- */

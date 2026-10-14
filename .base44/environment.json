@@ -12,6 +12,26 @@
       "name": "ADMIN_EMAILS",
       "description": "Comma-separated emails of people who can open the Admin screen to add companies and make team codes, e.g. you@yourcompany.com. Sign up with that email first.",
       "requiredAtBoot": false
+    },
+    {
+      "name": "PLAID_CLIENT_ID",
+      "description": "Plaid client ID, for read-only bank connections. From https://dashboard.plaid.com/developers/keys",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "PLAID_SECRET",
+      "description": "Plaid secret for the environment in PLAID_ENV (the Sandbox secret while testing). Same page as the client ID.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "PLAID_ENV",
+      "description": "sandbox while testing (fake banks, free), production for real banks once Plaid approves the app.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "PLAID_WEBHOOK_URL",
+      "description": "Optional. This app's address plus /api/plaid/webhook, e.g. https://your-app/api/plaid/webhook. Lets new transactions arrive on their own.",
+      "requiredAtBoot": false
     }
   ]
 }

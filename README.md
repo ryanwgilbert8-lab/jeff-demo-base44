@@ -72,6 +72,17 @@ which reports `{ ai, db }` and fails when the database is unreachable).
   button to add a company (401(k) match, provider) and make a team code for each hiring class.
 - The old seeded demo logins are removed on boot. Set `SEED_DEMO_USERS=1` to bring them back.
 
+## Connecting real banks (Plaid)
+Add `PLAID_CLIENT_ID`, `PLAID_SECRET` and `PLAID_ENV=sandbox` in Base44's secrets. In sandbox, pick any
+bank in the Plaid popup and sign in with `user_good` / `pass_good` (or `user_transactions_dynamic` with any
+password for realistic paychecks and spending). Switch to `PLAID_ENV=production` and the production
+secret once Plaid approves the app for real banks.
+
+After connecting, a real user gets the same walk-through as the demo, built from their own data:
+where they stand, their paycheck (base and commission), their cost of living with suggested trims,
+a plan from the money engine, what it's worth, and a home screen with safe-to-spend. Jeff is read-only:
+he tells people which transfers to set up in their bank instead of moving money himself.
+
 ## Not yet production (known gaps)
 - No SSO (Okta/Entra) — password auth with sessions only.
 - HRIS integration is a generic push API, not certified Workday/ADP/Gusto connectors.
