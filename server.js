@@ -8,13 +8,23 @@ const PORT = process.env.PORT || 3000;
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.JEFF_MODEL || "claude-haiku-4-5-20251001";
 const html = fs.readFileSync(path.join(__dirname, "public", "index.html"));
+// Public by design: Supabase's publishable key only allows what the database's row-level security permits.
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://ihnmryaakdgqebrwgfsb.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "sb_publishable_bTA__NaqrH7c53opWgPVjw_kudnC20F";
+const VENDOR = { "/vendor/supabase-2.117.3.js": fs.readFileSync(path.join(__dirname, "public", "vendor", "supabase-2.117.3.js")) };
 
-function send(res, code, type, body) {
-  res.writeHead(code, { "Content-Type": type });
+function send(res, code, type, body, extra) {
+  res.writeHead(code, { "Content-Type": type, "X-Content-Type-Options": "nosniff", ...extra });
   res.end(body);
 }
 
 http.createServer(async (req, res) => {
+  if (req.method === "GET" && VENDOR[req.url]) {
+    return send(res, 200, "text/javascript; charset=utf-8", VENDOR[req.url], { "Cache-Control": "public, max-age=31536000, immutable" });
+  }
+  if (req.method === "GET" && req.url === "/api/config") {
+    return send(res, 200, "application/json", JSON.stringify({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY }), { "Cache-Control": "no-store" });
+  }
   if (req.method === "GET" && req.url === "/api/health") {
     return send(res, 200, "application/json", JSON.stringify({ ai: !!KEY }));
   }

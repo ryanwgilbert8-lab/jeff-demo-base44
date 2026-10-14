@@ -196,7 +196,8 @@ body.clean .controls{display:none}
 .endcall{margin-top:12px; background:var(--flag); color:#fff; border:0; border-radius:999px; padding:10px; width:100%; font-weight:600}
 
 .banner{position:absolute; left:10px; right:10px; top:44px; z-index:35; background:var(--surface); color:var(--ink); border-radius:18px; padding:12px 14px; box-shadow:0 18px 40px -12px rgba(0,0,0,.35); transform:translateY(-140%); transition:transform .45s cubic-bezier(.2,.9,.3,1.2); cursor:pointer; border:1px solid var(--line)}
-.banner.show{transform:none}
+.banner{visibility:hidden; transition:transform .45s cubic-bezier(.2,.9,.3,1.2), visibility 0s .45s}
+.banner.show{transform:none; visibility:visible; transition:transform .45s cubic-bezier(.2,.9,.3,1.2), visibility 0s}
 .banner .bt{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:3px}
 .banner b{font-weight:600}
 .banner p{margin:0; font-size:14px}
@@ -1869,7 +1870,149 @@ async function llm(task, schema){
   catch(e){ if (e && e.code === "not_granted"){ liveAI = false; paintAI(); } return null; }
 }
 
-paintControls(); paintAI(); getSampler(); welcome();
+/* ================= Live mode: real people, real sign-in =================
+   The main address is the real app. /demo keeps the investor demo with sample data and controls.
+   Sign-in is an emailed link (Supabase Auth). Data rules live in the database (row-level security). */
+const LIVE = !/^\/demo\/?$/.test(location.pathname);
+let sb = null, liveUser = null;
+
+document.head.insertAdjacentHTML("beforeend", `<style>
+.field{display:block; margin:0 0 14px}
+.field span{display:block; font-size:13px; color:var(--muted); margin-bottom:5px}
+.field input{width:100%; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font:inherit; outline:none}
+.field input:focus{border-color:var(--jeff2)}
+.err{color:var(--flag); font-size:14px; margin:0 0 12px}
+.ghost{display:block; width:100%; background:transparent; border:0; color:inherit; opacity:.75; padding:12px; font-size:14px; text-decoration:underline}
+.nextcard{background:var(--paper); border-radius:16px; padding:14px 16px; margin:18px 0 0}
+.nextcard b{display:block; margin-bottom:2px}
+body.live .controls, body.live .hidebtn{display:none}
+</style>`);
+
+function loadScript(src){ return new Promise((ok, fail) => { const t = document.createElement("script"); t.src = src; t.onload = ok; t.onerror = fail; document.head.appendChild(t); }); }
+
+async function liveStart(){
+  document.body.classList.add("live");
+  try {
+    const [cfg] = await Promise.all([fetch("/api/config").then(r => r.json()), loadScript("/vendor/supabase-2.117.3.js")]);
+    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" } });
+  } catch(e){
+    return show(`<div class="pad"><h1 class="title">Jeff can't load right now</h1><p class="sub">Check your connection and refresh the page.</p></div>`);
+  }
+  // An expired or already-used email link comes back as an error in the URL.
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const linkError = hash.get("error_description");
+  if (linkError) history.replaceState(null, "", location.pathname);
+
+  const { data } = await sb.auth.getSession();
+  if (location.href.includes("#")) history.replaceState(null, "", location.pathname + location.search); // drop sign-in tokens from the address bar
+  liveUser = data.session?.user ?? null;
+  liveRoute(linkError ? "That sign-in link has expired or was already used. Send yourself a new one." : null);
+  // Sign-in or sign-out in another tab. Supabase calls must not run inside this callback, hence the timeout.
+  sb.auth.onAuthStateChange((event, session) => {
+    const id = session?.user?.id ?? null;
+    if (id !== (liveUser?.id ?? null)) { liveUser = session?.user ?? null; setTimeout(() => liveRoute(), 0); }
+  });
+}
+
+async function liveRoute(notice){
+  if (!liveUser) return liveWelcome(notice);
+  const { data: prof, error } = await sb.from("profiles").select("first_name, onboarding_step, employer_id, cohort").eq("id", liveUser.id).single();
+  if (error || !prof){
+    show(`<div class="pad"><h1 class="title">Something went wrong</h1><p class="sub">We couldn't load your account. Refresh, or sign out and back in.</p><button class="primary" id="out">Sign out</button></div>`);
+    $("#out").onclick = liveSignOut;
+    return;
+  }
+  if (prof.onboarding_step === "join") return liveJoin(prof);
+  return liveReady(prof);
+}
+
+function liveWelcome(notice){
+  hush(); S.screen = "welcome";
+  const bars = Array.from({length:22}, (_,i) => `<span style="animation-delay:${(i*0.11)%1.6}s"></span>`).join("");
+  show(`<div class="welcome"><div class="top">
+      <h1 class="wordmark">Jeff</h1>
+      <p class="tag">Your money, run for you. Built for sales pay: steady base, lumpy commission, and every dollar with a job.</p>
+      <div class="bigwave" aria-hidden="true">${bars}</div></div>
+    <div class="bottom">
+      ${notice ? `<p class="fine" style="opacity:1;margin:0 0 12px">${esc(notice)}</p>` : ""}
+      <button class="primary" id="go">Get started</button>
+      <p class="fine">Free from your employer, and private. Your company never sees your accounts or what you ask Jeff.</p>
+      <a class="ghost" href="/demo">See a demo with sample data</a></div></div>`);
+  $("#go").onclick = liveEmail;
+}
+
+function liveEmail(){
+  show(`<form class="pad" id="f" novalidate>
+      <h1 class="title">Sign in</h1>
+      <p class="sub">Use your work or personal email. We'll send you a link that signs you in. No password.</p>
+      <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
+      <p class="err" id="err" hidden></p>
+      <button class="primary" id="send">Email me a link</button>
+      <button type="button" class="ghost" id="back" style="color:var(--muted)">Back</button>
+    </form>`);
+  const f = $("#f"), err = $("#err");
+  f.email.focus();
+  $("#back").onclick = () => liveWelcome();
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const email = f.email.value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = "That doesn't look like an email address."; err.hidden = false; return; }
+    $("#send").disabled = true; $("#send").textContent = "Sending…";
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/" } });
+    if (error){
+      err.textContent = /rate|seconds/i.test(error.message) ? "Too many links sent. Wait a minute and try again." : "We couldn't send the link. Try again in a minute.";
+      err.hidden = false; $("#send").disabled = false; $("#send").textContent = "Email me a link"; return;
+    }
+    show(`<div class="pad"><h1 class="title">Check your email</h1>
+      <p class="sub">We sent a sign-in link to <b>${esc(email)}</b>. Open it on this device. It works once and expires in an hour.</p>
+      <button class="ghost" id="again" style="color:var(--muted)">Use a different email</button></div>`);
+    $("#again").onclick = liveEmail;
+  };
+}
+
+function liveJoin(prof){
+  show(`<form class="pad" id="f" novalidate>
+      <h1 class="title">Welcome to Jeff</h1>
+      <p class="sub">Your company set this up for your team. Enter the code from your welcome email.</p>
+      <label class="field"><span>First name</span><input name="first" autocomplete="given-name" value="${esc(prof.first_name || "")}" required></label>
+      <label class="field"><span>Team code</span><input name="code" autocapitalize="characters" placeholder="ACME-SDR-27" required></label>
+      <p class="err" id="err" hidden></p>
+      <button class="primary" id="go">Continue</button>
+      <button type="button" class="ghost" id="out" style="color:var(--muted)">Sign out</button>
+    </form>`);
+  const f = $("#f"), err = $("#err");
+  $("#out").onclick = liveSignOut;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const first = f.first.value.trim().slice(0, 60), code = f.code.value.trim();
+    if (!first || !code){ err.textContent = "Add your first name and the team code."; err.hidden = false; return; }
+    $("#go").disabled = true;
+    const { error } = await sb.rpc("redeem_invite", { invite: code, first });
+    if (error){
+      err.textContent = /expired/.test(error.message) ? "That code has expired. Ask your manager for a new one."
+        : /used_up/.test(error.message) ? "That code has been used up. Ask your manager for a new one."
+        : "We don't recognize that code. Check the welcome email from your company.";
+      err.hidden = false; $("#go").disabled = false; return;
+    }
+    liveRoute();
+  };
+}
+
+async function liveReady(prof){
+  const { data: emp } = prof.employer_id ? await sb.from("employers").select("name").eq("id", prof.employer_id).single() : { data: null };
+  show(`<div class="pad">
+      <h1 class="title">You're in${prof.first_name ? ", " + esc(prof.first_name) : ""}.</h1>
+      <p class="sub">${emp ? `${esc(emp.name)} set Jeff up for ${esc(prof.cohort || "your team")}. ` : ""}Signed in as ${esc(liveUser.email || "")}.</p>
+      <div class="nextcard"><b>Next: connect your bank</b><span class="sub" style="margin:0">Jeff reads your accounts (never moves money) and builds your plan around your base pay and commission. This step is coming in the next update.</span></div>
+    </div>
+    <div class="footer"><button class="ghost" id="out" style="color:var(--muted)">Sign out</button></div>`);
+  $("#out").onclick = liveSignOut;
+}
+
+async function liveSignOut(){ await sb.auth.signOut(); liveUser = null; liveWelcome(); }
+
+paintControls(); paintAI(); getSampler();
+if (LIVE) liveStart(); else welcome();
 
 </script>
 </body>
